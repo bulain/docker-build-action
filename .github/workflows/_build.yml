@@ -125,6 +125,7 @@ jobs:
           OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
           OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
           OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+          OSS_REGION: ${{ secrets.OSS_REGION }}
           FORCE: ${{ inputs.force }}
           OSS_PREFIX: ${{ matrix.oss_prefix }}
         run: |
@@ -136,7 +137,16 @@ jobs:
 
           . out/manifest.env
           key="oss://${OSS_BUCKET}/${OSS_PREFIX}/${ARTIFACT_FILE}"
-          auth=(-e "$OSS_ENDPOINT" -i "$OSS_ACCESS_KEY_ID" -k "$OSS_ACCESS_KEY_SECRET")
+
+          # ossutil v2 的 V4 签名必须带 region；未配置 Secret 时从 endpoint 推导
+          region="${OSS_REGION:-}"
+          if [ -z "$region" ]; then
+            region="${OSS_ENDPOINT#oss-}"
+            region="${region%%.*}"
+          fi
+          echo "OSS region: $region"
+
+          auth=(-e "$OSS_ENDPOINT" --region "$region" -i "$OSS_ACCESS_KEY_ID" -k "$OSS_ACCESS_KEY_SECRET")
 
           if "$OSSUTIL" stat "$key" "${auth[@]}" >/dev/null 2>&1 \
              && [ "${FORCE:-false}" != "true" ]; then

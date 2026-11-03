@@ -18,6 +18,7 @@ tar 内保留绝对路径结构（`data/nginx/...`），解压到 `/` 即落到 
 
 1. 仓库 Secrets 加 `OSS_BUCKET`、`OSS_ENDPOINT`、`OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET`。
    `OSS_ENDPOINT` 必须是公网 endpoint（GitHub runner 在境外，内网 endpoint 不可达）。
+   可选 `OSS_REGION`（如 `cn-hangzhou`）；不配则从 endpoint 推导，`oss-cn-hangzhou.aliyuncs.com` → `cn-hangzhou`。
 2. 推送到 `main` 后手动跑一次 `build nginx` 验证全链路。
 
 OSS 前缀不走 Secrets，仍在 `config.yaml` 的 `oss.prefix`。
