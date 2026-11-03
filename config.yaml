@@ -160,7 +160,9 @@ packages:
     os: [el7, el8, el9, el10]
     arches: [amd64, arm64]
     install_prefix: "/data/erlang"
-    source_url: "https://www.erlang.org/download/otp_src_{version}.tar.gz"
+    # erlang.org 的 /download/ 只保留各系列最新版；带补丁号的版本（如 26.2.5.21）
+    # 只在 GitHub release 资产里
+    source_url: "https://github.com/erlang/otp/releases/download/OTP-{version}/otp_src_{version}.tar.gz"
     source_dir: "otp_src_{version}"
     sha256:
       "26.2.5.21": "e1fde86f4e2874d4c136221a34753b5b785d762b910fb3fb35a23a6a7faf0a64"
