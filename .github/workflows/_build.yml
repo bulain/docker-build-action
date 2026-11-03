@@ -31,7 +31,7 @@ jobs:
       matrix: ${{ steps.gen.outputs.matrix }}
       count: ${{ steps.gen.outputs.count }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: 准备 PyYAML
         run: |
@@ -59,7 +59,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: 生成构建环境文件
         run: |
@@ -170,7 +170,7 @@ jobs:
 
       - name: 失败时保留产物供排查
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: failed-${{ matrix.target_os }}-${{ matrix.arch }}-${{ matrix.pkg_version }}
           path: out/
