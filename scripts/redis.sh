@@ -9,7 +9,7 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 : "${PKG_VERSION:?缺少 PKG_VERSION}"
 : "${SOURCE_URL:?缺少 SOURCE_URL}"
 : "${SOURCE_DIR_NAME:?缺少 SOURCE_DIR_NAME}"
-: "${INSTALL_PREFIX:?缺少 INSTALL_PREFIX}"
+: "${PKG_PREFIX:?缺少 PKG_PREFIX}"
 : "${OUTPUT_DIR:?缺少 OUTPUT_DIR}"
 
 # redis 8+ 需要 C11 atomics，gcc 4.8.5 编不过；el7 必须锁在 7.2 线。
@@ -21,7 +21,7 @@ if [ "${TARGET_OS}" = "el7" ]; then
 fi
 
 SOURCE_ROOT="${BUILD_SOURCE_DIR:-/data/src}"
-mkdir -p "$SOURCE_ROOT" "$INSTALL_PREFIX"
+mkdir -p "$SOURCE_ROOT" "$PKG_PREFIX"
 
 configure_repos
 install_packages gcc make tar gzip xz ca-certificates
@@ -45,9 +45,9 @@ else
   # shellcheck disable=SC2086
   make -j"$(nproc_jobs)" ${PKG_MAKE_ARGS:-}
 fi
-make PREFIX="$INSTALL_PREFIX" install
+make PREFIX="$PKG_PREFIX" install
 
-verify_static_embed "$INSTALL_PREFIX/bin/redis-server" redis-server
-"$INSTALL_PREFIX/bin/redis-server" --version >&2
+verify_static_embed "$PKG_PREFIX/bin/redis-server" redis-server
+"$PKG_PREFIX/bin/redis-server" --version >&2
 
-package_install_dir "$INSTALL_PREFIX" "$OUTPUT_DIR"
+package_install_dir "$PKG_PREFIX" "$OUTPUT_DIR"

@@ -10,7 +10,7 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 : "${PKG_VERSION:?缺少 PKG_VERSION}"
 : "${SOURCE_URL:?缺少 SOURCE_URL}"
 : "${SOURCE_DIR_NAME:?缺少 SOURCE_DIR_NAME}"
-: "${INSTALL_PREFIX:?缺少 INSTALL_PREFIX}"
+: "${PKG_PREFIX:?缺少 PKG_PREFIX}"
 : "${OUTPUT_DIR:?缺少 OUTPUT_DIR}"
 : "${VENDOR_OPENSSL:?缺少 VENDOR_OPENSSL}"
 : "${VENDOR_OPENSSL_URL:?缺少 VENDOR_OPENSSL_URL}"
@@ -24,7 +24,7 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 : "${VENDOR_LIBCRYPT_URL:?缺少 VENDOR_LIBCRYPT_URL}"
 
 SOURCE_ROOT="${BUILD_SOURCE_DIR:-/data/src}"
-mkdir -p "$SOURCE_ROOT" "$INSTALL_PREFIX"
+mkdir -p "$SOURCE_ROOT" "$PKG_PREFIX"
 
 configure_repos
 install_packages gcc make perl tar gzip xz ca-certificates patch autoconf automake libtool
@@ -58,7 +58,7 @@ build_libxcrypt "$LIBCRYPT_DIR"
 cd "$SOURCE_ROOT/$SOURCE_DIR_NAME"
 
 # shellcheck disable=SC2086  # configure 参数需要按空格拆分
-./configure --prefix="$INSTALL_PREFIX" \
+./configure --prefix="$PKG_PREFIX" \
   --with-openssl="$OPENSSL_DIR" \
   --with-openssl-opt="no-shared no-tests" \
   --with-pcre="$PCRE2_DIR" \
@@ -81,7 +81,7 @@ fi
 make -j"$(nproc_jobs)"
 make install
 
-verify_static_embed "$INSTALL_PREFIX/sbin/nginx" nginx
-"$INSTALL_PREFIX/sbin/nginx" -V 2>&1 | head -n 3 >&2 || true
+verify_static_embed "$PKG_PREFIX/sbin/nginx" nginx
+"$PKG_PREFIX/sbin/nginx" -V 2>&1 | head -n 3 >&2 || true
 
-package_install_dir "$INSTALL_PREFIX" "$OUTPUT_DIR"
+package_install_dir "$PKG_PREFIX" "$OUTPUT_DIR"

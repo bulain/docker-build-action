@@ -74,7 +74,8 @@ jobs:
           SOURCE_URL=${{ matrix.source_url }}
           SOURCE_DIR_NAME=${{ matrix.source_dir_name }}
           SOURCE_SHA256=${{ matrix.source_sha256 }}
-          INSTALL_PREFIX=${{ matrix.install_prefix }}
+          # 不能叫 INSTALL_PREFIX：OTP 的 Makefile 会把它当成 DESTDIR，导致安装路径前缀重复
+          PKG_PREFIX=${{ matrix.pkg_prefix }}
           BUILD_SOURCE_DIR=${{ matrix.build_source_dir }}
           OUTPUT_DIR=${{ matrix.output_dir }}
           NGINX_CONFIGURE_ARGS=${{ matrix.nginx_configure_args }}

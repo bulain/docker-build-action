@@ -92,7 +92,9 @@ def main() -> int:
                         "source_url": fill(pkg["source_url"], version),
                         "source_dir_name": fill(pkg["source_dir"], version),
                         "source_sha256": sha256,
-                        "install_prefix": pkg["install_prefix"],
+                        # 不能叫 install_prefix：OTP 的 Makefile 会把环境变量
+                        # INSTALL_PREFIX 当成 DESTDIR，导致安装路径被重复加前缀
+                        "pkg_prefix": pkg["install_prefix"],
                         "build_source_dir": cfg.get("build", {}).get("source_dir", "/data/src"),
                         "output_dir": cfg.get("build", {}).get("output_dir", "/data/files"),
                         "nginx_configure_args": pick(pkg.get("configure_args", ""), os_name) or "",
