@@ -27,7 +27,8 @@ SOURCE_ROOT="${BUILD_SOURCE_DIR:-/data/src}"
 mkdir -p "$SOURCE_ROOT" "$INSTALL_PREFIX"
 
 configure_repos
-install_packages gcc make perl tar gzip xz curl ca-certificates patch autoconf automake libtool
+install_packages gcc make perl tar gzip xz ca-certificates patch autoconf automake libtool
+ensure_curl
 
 cd "$SOURCE_ROOT"
 

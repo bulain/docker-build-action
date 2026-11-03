@@ -69,6 +69,16 @@ install_packages() {
   fi
 }
 
+# el8+ 镜像自带 curl-minimal，与完整 curl 包冲突；只在缺失时补装。
+ensure_curl() {
+  command -v curl >/dev/null 2>&1 && return 0
+  if [ "${TARGET_OS}" = "el7" ]; then
+    yum install -y -q curl
+  else
+    dnf install -y -q curl-minimal || dnf install -y -q curl
+  fi
+}
+
 # fetch_source <url> <dest> <sha256 或空> <显示名>
 fetch_source() {
   local url="$1" dest="$2" sha="$3" name="$4"
