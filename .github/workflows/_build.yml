@@ -80,6 +80,9 @@ jobs:
           OUTPUT_DIR=${{ matrix.output_dir }}
           PKG_CONFIGURE_ARGS=${{ matrix.pkg_configure_args }}
           PKG_MAKE_ARGS=${{ matrix.pkg_make_args }}
+          PKG_GO_VERSION=${{ matrix.pkg_go_version }}
+          PKG_GO_URL=${{ matrix.pkg_go_url }}
+          PKG_GO_SHA256=${{ matrix.pkg_go_sha256 }}
           VENDOR_OPENSSL=${{ matrix.vendor_openssl }}
           VENDOR_OPENSSL_URL=${{ matrix.vendor_openssl_url }}
           VENDOR_PCRE2=${{ matrix.vendor_pcre2 }}

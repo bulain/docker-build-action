@@ -1,6 +1,6 @@
 # docker-build-action
 
-从官方源码编译 nginx / OpenResty / valkey / redis / Erlang / PostgreSQL / HAProxy，产出 el7–el10 × amd64/arm64 的 tar.gz，上传阿里云 OSS。
+从官方源码编译 nginx / OpenResty / valkey / redis / Erlang / PostgreSQL / HAProxy / Orchestrator，产出 el7–el10 × amd64/arm64 的 tar.gz，上传阿里云 OSS。
 
 ## 工作方式
 
@@ -31,7 +31,7 @@ OSS 前缀不走 Secrets，仍在 `config.yaml` 的 `oss.prefix`。
 - 手动指定版本：`workflow_dispatch` 的 `version` 输入覆盖配置值。
 - 覆盖 OSS 已有产物：手动触发时勾选 `force`；默认跳过已存在文件。
 
-当前状态：全部软件关闭（`enabled: false`），需要时逐个开启。
+当前状态：仅 Orchestrator 开启（`3.2.6-22`），其余软件关闭（`enabled: false`），需要时逐个开启。
 
 erlang 当前版本 `27.3.4.19`。如需一次构建多个版本，可用 `version_matrix` 列出，矩阵会展开成「版本 × 档位 × 架构」。el7 的 OpenSSL 1.0.2 缺少 OTP crypto 需要的 1.1+ API，构建时会自编译 `vendor.openssl`（1.1.1w）共享库并装到 `/data/erlang` 下。
 
@@ -47,6 +47,7 @@ scripts/redis.sh               redis 构建
 scripts/erlang.sh              Erlang/OTP 构建
 scripts/postgresql.sh          PostgreSQL 构建（含 contrib）
 scripts/haproxy.sh             HAProxy 构建（同样静态植入四库）
+scripts/orchestrator.sh        Orchestrator 构建（Go + cgo/vendored sqlite）
 scripts/gen_matrix.py          config.yaml -> Actions matrix
 .github/workflows/_build.yml   可复用工作流（矩阵 -> 容器编译 -> OSS）
 .github/workflows/nginx.yml    nginx 触发入口
@@ -56,6 +57,7 @@ scripts/gen_matrix.py          config.yaml -> Actions matrix
 .github/workflows/erlang.yml   erlang 触发入口
 .github/workflows/postgresql.yml PostgreSQL 触发入口
 .github/workflows/haproxy.yml  HAProxy 触发入口
+.github/workflows/orchestrator.yml Orchestrator 触发入口
 GLOSSARY.md                    术语
 docs/adr/                      关键决策记录
 ```
@@ -77,6 +79,8 @@ docs/adr/                      关键决策记录
 - HAProxy 在 el8 及以上启用 QUIC（`USE_QUIC_OPENSSL_COMPAT`）；el7 的 OpenSSL 1.1.1w 不满足，关闭。
   el7 还需显式 `USE_KTLS=`：`TARGET=linux-glibc` 默认开 KTLS，而 3.10 内核头文件没有 `linux/tls.h`。
 - HAProxy el7 只做 amd64：gcc 4.8.5 在 aarch64 上编译原子操作会 ICE。用 `arches_by_os.<os>` 可按档位收窄架构。
+- Orchestrator 用 `packages.<pkg>.go` 指定 Go SDK（按架构校验 sha256），源码包自带 vendor，
+  构建不联网；cgo 依赖 gcc，产物动态依赖 glibc。
 - ossutil 固定 2.4.0，双架构、静态链接，可在宿主机直接运行。
 
 ## License

@@ -233,6 +233,25 @@ packages:
       default: "USE_QUIC=1 USE_QUIC_OPENSSL_COMPAT=1"
       el7: "USE_KTLS="
 
+  orchestrator:
+    enabled: true
+    version: "3.2.6-22"
+    os: [el7, el8, el9, el10]
+    arches: [amd64, arm64]
+    install_prefix: "/data/orchestrator"
+    source_url: "https://github.com/openark/orchestrator/archive/refs/tags/v{version}.tar.gz"
+    source_dir: "orchestrator-{version}"
+    sha256:
+      "3.2.6-22": "f780ac7a1df94bd6ef1917663c4803beca168486511e70334da006725b113954"
+    # Go SDK 按架构下载校验；源码包自带 vendor，构建不联网。
+    # cgo（vendored go-sqlite3）需要目标机 gcc。
+    go:
+      version: "1.26.10"
+      url: "https://go.dev/dl/go{version}.linux-{goarch}.tar.gz"
+      sha256:
+        amd64: "ccfe7ae822d2c2f41f4fe7c956199967a4dac22d0ee0d2b2bfdb440aab3b20c5"
+        arm64: "3f4227ce7b206a513e794f1393adb473a07b46e94d18bd15d1c684bbb7319797"
+
   erlang:
     enabled: false
     version: "27.3.4.19"

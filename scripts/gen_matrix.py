@@ -80,6 +80,22 @@ def main() -> int:
             )
             for arch in arches:
                 arch_cfg = architectures[arch]
+
+                # 可选 Go 工具链（orchestrator 等 Go 项目用）；URL 里的 {goarch}
+                # 按 amd64/arm64 展开，sha256 可按架构覆盖
+                go_cfg = pkg.get("go") or {}
+                go_version = str(go_cfg.get("version", ""))
+                go_sha_raw = go_cfg.get("sha256", "")
+                if isinstance(go_sha_raw, dict):
+                    go_sha256 = go_sha_raw.get(arch) or go_sha_raw.get("default", "")
+                else:
+                    go_sha256 = go_sha_raw or ""
+                go_url = (
+                    fill(go_cfg.get("url", "").replace("{goarch}", arch), go_version)
+                    if go_version
+                    else ""
+                )
+
                 entries.append(
                     {
                         # 键名会被 workflow 直接转成大写环境变量，故统一用 env 风格小写
@@ -111,6 +127,9 @@ def main() -> int:
                         "vendor_zlib_version": zlib["version"],
                         "vendor_zlib_url": fill(zlib["url"], zlib["version"]),
                         "vendor_zlib_dir": fill(zlib["dir"], zlib["version"]),
+                        "pkg_go_version": go_version,
+                        "pkg_go_url": go_url,
+                        "pkg_go_sha256": go_sha256,
                         "vendor_libxcrypt": libxcrypt_version,
                         "vendor_libxcrypt_url": fill(libxcrypt_url_tpl, libxcrypt_version),
                         "oss_prefix": oss.get("prefix", ""),
