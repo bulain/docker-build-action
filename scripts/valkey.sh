@@ -34,16 +34,8 @@ extract_source "$PKG-$PKG_VERSION.tar.gz" "$SOURCE_ROOT"
 
 cd "$SOURCE_ROOT/$SOURCE_DIR_NAME"
 
-jobs=$(nproc_jobs)
-if [ "${TARGET_OS}" = "el7" ]; then
-  # el7 的 make 3.82 在 -j 下与 deps 的 distclean 存在竞态，且 src/Makefile 里
-  # 构建 deps 的命令带 '-' 前缀会吞掉错误。先串行构建依赖，让失败可见。
-  (cd deps && make hiredis linenoise lua hdr_histogram fpconv)
-  jobs=1
-fi
-
 # shellcheck disable=SC2086  # make 参数需要按空格拆分
-make -j"$jobs" ${VALKEY_MAKE_ARGS:-}
+make -j"$(nproc_jobs)" ${VALKEY_MAKE_ARGS:-}
 make PREFIX="$INSTALL_PREFIX" install
 
 verify_static_embed "$INSTALL_PREFIX/bin/valkey-server" valkey-server

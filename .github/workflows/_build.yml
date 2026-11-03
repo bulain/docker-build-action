@@ -69,7 +69,8 @@ jobs:
           PKG=${{ matrix.pkg }}
           PKG_VERSION=${{ matrix.pkg_version }}
           TARGET_OS=${{ matrix.target_os }}
-          TARGET_ARCH=${{ matrix.target_arch }}
+          # 不能叫 TARGET_ARCH：GNU make 内置 .c.o 规则会把 $(TARGET_ARCH) 拼进编译命令
+          PKG_ARCH=${{ matrix.target_arch }}
           SOURCE_URL=${{ matrix.source_url }}
           SOURCE_DIR_NAME=${{ matrix.source_dir_name }}
           SOURCE_SHA256=${{ matrix.source_sha256 }}
