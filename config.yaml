@@ -116,7 +116,7 @@ packages:
         --with-stream_realip_module
 
   openresty:
-    enabled: true
+    enabled: false
     version: "1.31.8.1"
     sha256: "b569c63b420f80a4ac8466f2deffe73ed93ab760026532e039c3658409a997f4"
     os: [el7, el8, el9, el10]
