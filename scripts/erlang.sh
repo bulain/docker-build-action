@@ -15,6 +15,8 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SOURCE_ROOT="${BUILD_SOURCE_DIR:-/data/src}"
 mkdir -p "$SOURCE_ROOT" "$INSTALL_PREFIX"
 
+log "构建 ${PKG} ${PKG_VERSION} @ ${TARGET_OS}/${PKG_ARCH:-unknown}，前缀 ${INSTALL_PREFIX}"
+
 configure_repos
 install_packages gcc gcc-c++ make ncurses-devel perl tar gzip xz ca-certificates
 ensure_curl
@@ -49,14 +51,28 @@ if [ "${TARGET_OS}" = "el7" ]; then
     --with-ssl="$INSTALL_PREFIX" \
     --with-ssl-rpath="$INSTALL_PREFIX/lib"
 else
-  ./configure --prefix="$INSTALL_PREFIX"
+  # 显式指定系统 OpenSSL。不指定时 OTP 探测失败只会写 SKIP 然后静默跳过
+  # ssl/crypto，构建仍然"成功"；指定路径则探测失败会直接报错。
+  ./configure --prefix="$INSTALL_PREFIX" --with-ssl=/usr
 fi
 make -j"$(nproc_jobs)"
 make install
 
 # 冒烟：ssl/crypto 应用存在，且 crypto NIF 能真正加载（验证 el7 的 rpath）
-test -d "$INSTALL_PREFIX"/lib/erlang/lib/ssl-* || die "ssl 应用未安装"
-test -d "$INSTALL_PREFIX"/lib/erlang/lib/crypto-* || die "crypto 应用未安装"
+erlang_lib="$INSTALL_PREFIX/lib/erlang/lib"
+log "已安装应用: $(ls "$erlang_lib" 2>/dev/null | tr '\n' ' ')"
+for app in ssl crypto ssh; do
+  if [ -f "$SOURCE_ROOT/$SOURCE_DIR_NAME/lib/$app/SKIP" ]; then
+    log "lib/$app 被跳过，原因: $(cat "$SOURCE_ROOT/$SOURCE_DIR_NAME/lib/$app/SKIP")"
+  fi
+done
+if [ -f "$SOURCE_ROOT/$SOURCE_DIR_NAME/lib/crypto/config.log" ]; then
+  log "crypto configure 摘要:"
+  grep -iE 'openssl|SSL|checking' "$SOURCE_ROOT/$SOURCE_DIR_NAME/lib/crypto/config.log" | tail -30 >&2 || true
+fi
+
+test -d "$erlang_lib"/ssl-* || die "ssl 应用未安装（见上面的 SKIP/config 摘要）"
+test -d "$erlang_lib"/crypto-* || die "crypto 应用未安装（见上面的 SKIP/config 摘要）"
 "$INSTALL_PREFIX/bin/erl" -noshell -eval \
   '{ok, _} = application:ensure_all_started(crypto), io:format("OTP ~s~n", [erlang:system_info(otp_release)]), halt().' \
   >&2
