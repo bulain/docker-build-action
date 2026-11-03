@@ -13,6 +13,21 @@ die() { printf '[build] ERROR: %s\n' "$*" >&2; exit 1; }
 
 nproc_jobs() { getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2; }
 
+# dnf 元数据偶发从镜像站拿到空文件（"repomd.xml parser error: Document is empty"），
+# 重试并清掉元数据缓存，迫使重新选镜像。
+dnf_retry() {
+  local attempt=1
+  until dnf -y -q --setopt=retries=5 --setopt=timeout=60 "$@"; do
+    if [ "$attempt" -ge 3 ]; then
+      return 1
+    fi
+    log "dnf 失败，清理元数据后重试（第 ${attempt} 次）"
+    dnf clean metadata >/dev/null 2>&1 || true
+    sleep 5
+    attempt=$((attempt + 1))
+  done
+}
+
 # 配置 yum/dnf 源。el7 官方源已下线，重写为 vault；el8+ 启用 CRB/PowerTools。
 configure_repos() {
   case "${TARGET_OS:?}" in
@@ -46,12 +61,12 @@ enabled=1
 REPO
       ;;
     el8)
-      dnf -y -q install dnf-plugins-core >/dev/null
+      dnf_retry install dnf-plugins-core >/dev/null
       dnf config-manager --set-enabled powertools >/dev/null 2>&1 \
         || dnf config-manager --set-enabled PowerTools >/dev/null 2>&1 || true
       ;;
     el9 | el10)
-      dnf -y -q install dnf-plugins-core >/dev/null
+      dnf_retry install dnf-plugins-core >/dev/null
       dnf config-manager --set-enabled crb >/dev/null 2>&1 || true
       ;;
     *)
@@ -65,7 +80,7 @@ install_packages() {
   if [ "${TARGET_OS}" = "el7" ]; then
     yum install -y -q "$@"
   else
-    dnf install -y -q "$@"
+    dnf_retry install "$@"
   fi
 }
 
@@ -75,7 +90,7 @@ ensure_curl() {
   if [ "${TARGET_OS}" = "el7" ]; then
     yum install -y -q curl
   else
-    dnf install -y -q curl-minimal || dnf install -y -q curl
+    dnf_retry install curl-minimal || dnf_retry install curl
   fi
 }
 
