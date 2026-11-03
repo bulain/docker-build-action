@@ -116,7 +116,7 @@ packages:
         --with-stream_realip_module
 
   valkey:
-    enabled: true
+    enabled: false
     version: "9.1.3"
     versions:
       el7: "7.2.15"       # valkey 9.x 需 C11/GCC 5+；el7 的 gcc 4.8.5 只能编 7.2
@@ -131,6 +131,24 @@ packages:
       "9.1.3": "184e34ed2d9b51879b682b5b15205e2b9d677c60280e3cb453be8f520d04e293"
       "7.2.15": "a7750933605a272f732ccc32846411283472cdfca95391d41accd0aa73383d2b"
     # el7 上自带的 jemalloc 编译失败（persist-settings Error），改用系统 libc malloc
+    make_args:
+      default: ""
+      el7: "MALLOC=libc"
+
+  redis:
+    enabled: true
+    version: "8.10.3"
+    versions:
+      el7: "7.2.17"       # redis 8.x 需 C11/GCC 5+；el7 的 gcc 4.8.5 只能编 7.2
+    os: [el7, el8, el9, el10]
+    arches: [amd64, arm64]
+    install_prefix: "/data/redis"   # 与现网 Redis 部署目录保持一致
+    source_url: "https://download.redis.io/releases/redis-{version}.tar.gz"
+    source_dir: "redis-{version}"
+    sha256:
+      "8.10.3": "edde778f6bdee7581e42fc139ca9e07e2822212092f7501f99989656e3629d02"
+      "7.2.17": "07c679c013fd82513299733bddf91999bbbc830351ec9ea985a533b09a595d76"
+    # el7 上自带 jemalloc 编译失败，改用系统 libc malloc
     make_args:
       default: ""
       el7: "MALLOC=libc"

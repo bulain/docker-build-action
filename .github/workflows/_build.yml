@@ -78,7 +78,7 @@ jobs:
           BUILD_SOURCE_DIR=${{ matrix.build_source_dir }}
           OUTPUT_DIR=${{ matrix.output_dir }}
           NGINX_CONFIGURE_ARGS=${{ matrix.nginx_configure_args }}
-          VALKEY_MAKE_ARGS=${{ matrix.valkey_make_args }}
+          PKG_MAKE_ARGS=${{ matrix.pkg_make_args }}
           VENDOR_OPENSSL=${{ matrix.vendor_openssl }}
           VENDOR_OPENSSL_URL=${{ matrix.vendor_openssl_url }}
           VENDOR_PCRE2=${{ matrix.vendor_pcre2 }}

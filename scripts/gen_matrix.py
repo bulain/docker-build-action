@@ -87,7 +87,7 @@ def main() -> int:
                     "build_source_dir": cfg.get("build", {}).get("source_dir", "/data/src"),
                     "output_dir": cfg.get("build", {}).get("output_dir", "/data/files"),
                     "nginx_configure_args": pick(pkg.get("configure_args", ""), os_name) or "",
-                    "valkey_make_args": pick(pkg.get("make_args", ""), os_name) or "",
+                    "pkg_make_args": pick(pkg.get("make_args", ""), os_name) or "",
                     "vendor_openssl": openssl_version,
                     "vendor_openssl_url": fill(openssl_url_tpl, openssl_version),
                     "vendor_pcre2": pcre2_version,

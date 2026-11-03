@@ -35,7 +35,7 @@ extract_source "$PKG-$PKG_VERSION.tar.gz" "$SOURCE_ROOT"
 cd "$SOURCE_ROOT/$SOURCE_DIR_NAME"
 
 # shellcheck disable=SC2086  # make 参数需要按空格拆分
-make -j"$(nproc_jobs)" ${VALKEY_MAKE_ARGS:-}
+make -j"$(nproc_jobs)" ${PKG_MAKE_ARGS:-}
 make PREFIX="$INSTALL_PREFIX" install
 
 verify_static_embed "$INSTALL_PREFIX/bin/valkey-server" valkey-server
