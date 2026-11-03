@@ -34,8 +34,17 @@ extract_source "$PKG-$PKG_VERSION.tar.gz" "$SOURCE_ROOT"
 
 cd "$SOURCE_ROOT/$SOURCE_DIR_NAME"
 
-# shellcheck disable=SC2086  # make 参数需要按空格拆分
-make -j"$(nproc_jobs)" ${PKG_MAKE_ARGS:-}
+major="${PKG_VERSION%%.*}"
+if [ "$major" -ge 8 ] 2>/dev/null; then
+  # redis 8 的默认 make 目标会连带构建随仓库附带的模块
+  # （redisearch/redisjson/redisbloom/redistimeseries），模块编译失败会拖垮构建。
+  # 这里显式指定只构建核心服务器："build redis"。
+  # shellcheck disable=SC2086  # make 参数需要按空格拆分
+  make -j"$(nproc_jobs)" build redis ${PKG_MAKE_ARGS:-}
+else
+  # shellcheck disable=SC2086
+  make -j"$(nproc_jobs)" ${PKG_MAKE_ARGS:-}
+fi
 make PREFIX="$INSTALL_PREFIX" install
 
 verify_static_embed "$INSTALL_PREFIX/bin/redis-server" redis-server
