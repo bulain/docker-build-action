@@ -66,7 +66,7 @@ cd "$SOURCE_ROOT/$SOURCE_DIR_NAME"
   --with-zlib="$ZLIB_DIR" \
   --with-cc-opt="-I$LIBCRYPT_DIR/build/include" \
   --with-ld-opt="-Wl,--as-needed $LIBCRYPT_DIR/build/lib/libcrypt.a" \
-  ${NGINX_CONFIGURE_ARGS:-}
+  ${PKG_CONFIGURE_ARGS:-}
 
 # zlib-ng 必须用 --zlib-compat 预编译 libz.a；放在 configure 之后，
 # 保证 libz.a 比 objs/Makefile 新，nginx 的 make 不会触发 distclean 重建。

@@ -115,6 +115,45 @@ packages:
         --with-stream_ssl_module
         --with-stream_realip_module
 
+  openresty:
+    enabled: true
+    version: "1.31.8.1"
+    sha256: "b569c63b420f80a4ac8466f2deffe73ed93ab760026532e039c3658409a997f4"
+    os: [el7, el8, el9, el10]
+    arches: [amd64, arm64]
+    install_prefix: "/data/openresty"
+    source_url: "https://openresty.org/download/openresty-{version}.tar.gz"
+    source_dir: "openresty-{version}"
+    # 与 nginx 相同的静态植入方案；--with-http_v3_module 需要 OpenSSL 3.2+，
+    # 只对 el9/el10（openssl 3.5.9）启用
+    configure_args:
+      default: >-
+        --with-http_ssl_module
+        --with-http_v2_module
+        --with-http_realip_module
+        --with-http_stub_status_module
+        --with-stream
+        --with-stream_ssl_module
+        --with-stream_realip_module
+      el9: >-
+        --with-http_ssl_module
+        --with-http_v2_module
+        --with-http_v3_module
+        --with-http_realip_module
+        --with-http_stub_status_module
+        --with-stream
+        --with-stream_ssl_module
+        --with-stream_realip_module
+      el10: >-
+        --with-http_ssl_module
+        --with-http_v2_module
+        --with-http_v3_module
+        --with-http_realip_module
+        --with-http_stub_status_module
+        --with-stream
+        --with-stream_ssl_module
+        --with-stream_realip_module
+
   valkey:
     enabled: false
     version: "9.1.3"

@@ -1,6 +1,6 @@
 # docker-build-action
 
-从官方源码编译 nginx / valkey / redis / Erlang，产出 el7–el10 × amd64/arm64 的 tar.gz，上传阿里云 OSS。
+从官方源码编译 nginx / OpenResty / valkey / redis / Erlang，产出 el7–el10 × amd64/arm64 的 tar.gz，上传阿里云 OSS。
 
 ## 工作方式
 
@@ -31,7 +31,7 @@ OSS 前缀不走 Secrets，仍在 `config.yaml` 的 `oss.prefix`。
 - 手动指定版本：`workflow_dispatch` 的 `version` 输入覆盖配置值。
 - 覆盖 OSS 已有产物：手动触发时勾选 `force`；默认跳过已存在文件。
 
-当前状态：全部软件关闭（`enabled: false`），需要时逐个开启。
+当前状态：OpenResty 全档位开启；nginx、valkey、redis、erlang 关闭。
 
 erlang 当前版本 `27.3.4.19`。如需一次构建多个版本，可用 `version_matrix` 列出，矩阵会展开成「版本 × 档位 × 架构」。el7 的 OpenSSL 1.0.2 缺少 OTP crypto 需要的 1.1+ API，构建时会自编译 `vendor.openssl`（1.1.1w）共享库并装到 `/data/erlang` 下。
 
@@ -41,12 +41,14 @@ erlang 当前版本 `27.3.4.19`。如需一次构建多个版本，可用 `versi
 config.yaml                    唯一配置源
 scripts/common.sh              源配置、下载校验、静态植入校验、打包
 scripts/nginx.sh               nginx 构建（自带 openssl/pcre2/zlib/libxcrypt）
+scripts/openresty.sh           OpenResty 构建（同样静态植入）
 scripts/valkey.sh              valkey 构建
 scripts/redis.sh               redis 构建
 scripts/erlang.sh              Erlang/OTP 构建
 scripts/gen_matrix.py          config.yaml -> Actions matrix
 .github/workflows/_build.yml   可复用工作流（矩阵 -> 容器编译 -> OSS）
 .github/workflows/nginx.yml    nginx 触发入口
+.github/workflows/openresty.yml OpenResty 触发入口
 .github/workflows/valkey.yml   valkey 触发入口
 .github/workflows/redis.yml    redis 触发入口
 .github/workflows/erlang.yml   erlang 触发入口
