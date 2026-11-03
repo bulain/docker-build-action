@@ -1,0 +1,126 @@
+# 构建配置 —— 单一事实来源。
+#
+# 修改本文件或对应 scripts/<pkg>.sh 会触发该软件的 workflow。
+# 版本覆盖规则：先取更具体的键，再回落到 default；例如 valkey 在 el7 上用 versions.el7。
+#
+# 注意：oss.endpoint 必须是公网 endpoint。GitHub 托管的 runner 在境外，
+# 内网 endpoint（*-internal.aliyuncs.com）不可达。
+
+build:
+  source_dir: "/data/src"    # 源码下载与解压目录（容器内）
+  output_dir: "/data/files"     # 产物目录（容器内），workflow 挂载宿主机 out/ 到这里
+
+oss:
+  # bucket 与 endpoint 和 AK/SK 一样走 GitHub Secrets：
+  #   OSS_BUCKET / OSS_ENDPOINT / OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET
+  prefix: "linux"     # 产物 key 前缀，可参数化
+
+architectures:
+  amd64:
+    arch_name: "x86_64"
+    runner: "ubuntu-24.04"
+    platform: "linux/amd64"
+  arm64:
+    arch_name: "aarch64"
+    runner: "ubuntu-24.04-arm"
+    platform: "linux/arm64"
+
+targets:
+  el7:
+    # centos:7 是官方多架构镜像，amd64 与 arm64/v8 同 tag
+    images: {amd64: "centos:7", arm64: "centos:7"}
+    # 官方源已下线，构建时重写为 vault；如 GitHub runner 访问受限可换成镜像站，
+    # 例如 https://archive.kernel.org/centos-vault
+    vault_base: "https://vault.centos.org"
+  el8:
+    images: {amd64: "almalinux:8", arm64: "almalinux:8"}
+  el9:
+    images: {amd64: "almalinux:9", arm64: "almalinux:9"}
+  el10:
+    images: {amd64: "almalinux:10", arm64: "almalinux:10"}
+
+# 静态植入组件。档位未列出的键回落到 default。
+vendor:
+  openssl:
+    versions: {default: "3.5.9", el8: "3.0.22", el7: "1.1.1w"}
+    # 旧分支的源码包被移到 source/old/ 下，需按档位覆盖 URL
+    url: "https://www.openssl.org/source/openssl-{version}.tar.gz"
+    urls:
+      el8: "https://www.openssl.org/source/old/3.0/openssl-{version}.tar.gz"
+      el7: "https://www.openssl.org/source/old/1.1.1/openssl-{version}.tar.gz"
+  pcre2:
+    versions: {default: "10.49", el7: "10.42"}
+    url: "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-{version}/pcre2-{version}.tar.gz"
+  zlib:
+    # el7 用经典 zlib（需 nginx 的胶水编译），其余档位用 zlib-ng（--zlib-compat）
+    default:
+      package: "zlib-ng"
+      version: "2.3.3"
+      url: "https://github.com/zlib-ng/zlib-ng/archive/refs/tags/{version}.tar.gz"
+      dir: "zlib-ng-{version}"
+    el8:
+      package: "zlib-ng"
+      version: "2.2.5"
+      url: "https://github.com/zlib-ng/zlib-ng/archive/refs/tags/{version}.tar.gz"
+      dir: "zlib-ng-{version}"
+    el7:
+      package: "zlib"
+      version: "1.3.2"
+      url: "https://zlib.net/fossils/zlib-{version}.tar.gz"
+      dir: "zlib-{version}"
+  libxcrypt:
+    versions: {default: "4.5.2", el8: "4.4.38", el7: "4.4.18"}
+    url: "https://github.com/besser82/libxcrypt/releases/download/v{version}/libxcrypt-{version}.tar.xz"
+
+packages:
+  nginx:
+    enabled: true
+    version: "1.30.6"
+    sha256: "3cf46f5ed7504d460125866b7bea99fb357f31d887e2e63b35503310e9b8b6c8"
+    os: [el7, el8, el9, el10]
+    arches: [amd64, arm64]
+    install_prefix: "/data/nginx"
+    source_url: "https://nginx.org/download/nginx-{version}.tar.gz"
+    source_dir: "nginx-{version}"
+    # --with-http_v3_module 需要 OpenSSL 3.2+，因此只有现代档（openssl 3.5.9）启用；
+    # el7/el8 的 openssl 1.1.1w / 3.0.22 不满足。
+    configure_args:
+      default: >-
+        --with-http_ssl_module
+        --with-http_v2_module
+        --with-http_realip_module
+        --with-http_stub_status_module
+        --with-stream
+        --with-stream_ssl_module
+        --with-stream_realip_module
+      el9: >-
+        --with-http_ssl_module
+        --with-http_v2_module
+        --with-http_v3_module
+        --with-http_realip_module
+        --with-http_stub_status_module
+        --with-stream
+        --with-stream_ssl_module
+        --with-stream_realip_module
+      el10: >-
+        --with-http_ssl_module
+        --with-http_v2_module
+        --with-http_v3_module
+        --with-http_realip_module
+        --with-http_stub_status_module
+        --with-stream
+        --with-stream_ssl_module
+        --with-stream_realip_module
+
+  valkey:
+    enabled: false
+    version: "9.1.3"
+    versions:
+      el7: "7.2.15"       # valkey 9.x 需 C11/GCC 5+；el7 的 gcc 4.8.5 只能编 7.2
+    os: [el7, el8, el9, el10]
+    arches: [amd64, arm64]
+    install_prefix: "/data/redis"   # 与现网 Redis 部署目录保持一致
+    source_url: "https://github.com/valkey-io/valkey/archive/refs/tags/{version}.tar.gz"
+    source_dir: "valkey-{version}"
+    make_args:
+      default: ""

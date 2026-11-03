@@ -1,0 +1,25 @@
+# 构建产物与临时目录
+/out/
+/build/
+/data/
+*.tar.gz
+*.tar.xz
+*.sha256
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 凭据与本地配置
+.env
+.env.*
+*.pem
+*.key
+
+# 编辑器与系统文件
+.idea/
+.vscode/
+.DS_Store
+*.swp
