@@ -49,7 +49,12 @@ def main() -> int:
     for os_name in pkg.get("os", []):
         target = cfg["targets"][os_name]
         version = args.version or pick(pkg.get("versions"), os_name) or pkg["version"]
-        sha256 = pick(pkg.get("sha256"), os_name) or ""
+        # sha256 支持三种写法：单个字符串、按版本映射、按档位映射
+        sha_raw = pkg.get("sha256", "")
+        if isinstance(sha_raw, dict):
+            sha256 = sha_raw.get(version) or sha_raw.get(os_name) or sha_raw.get("default", "")
+        else:
+            sha256 = sha_raw or ""
 
         openssl_version = pick(vendor["openssl"]["versions"], os_name)
         openssl_url_tpl = pick(vendor["openssl"].get("urls", {}), os_name) or vendor["openssl"]["url"]
