@@ -49,7 +49,7 @@ jobs:
             ${VERSION:+--version "$VERSION"})
           echo "matrix=$(printf '%s' "$out" | jq -c '.matrix')" >> "$GITHUB_OUTPUT"
           echo "count=$(printf '%s' "$out" | jq -r '.count')" >> "$GITHUB_OUTPUT"
-          echo "$out" | jq -r '.matrix.include[] | "\(.os)/\(.arch) \(.image) v\(.version)"'
+          echo "$out" | jq -r '.matrix.include[] | "\(.target_os)/\(.arch) \(.image) v\(.pkg_version)"'
 
   build:
     needs: matrix
@@ -171,7 +171,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: failed-${{ matrix.os }}-${{ matrix.arch }}
+          name: failed-${{ matrix.target_os }}-${{ matrix.arch }}-${{ matrix.pkg_version }}
           path: out/
           if-no-files-found: ignore
           retention-days: 7

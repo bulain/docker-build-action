@@ -48,13 +48,14 @@ def main() -> int:
     entries = []
     for os_name in pkg.get("os", []):
         target = cfg["targets"][os_name]
-        version = args.version or pick(pkg.get("versions"), os_name) or pkg["version"]
-        # sha256 支持三种写法：单个字符串、按版本映射、按档位映射
-        sha_raw = pkg.get("sha256", "")
-        if isinstance(sha_raw, dict):
-            sha256 = sha_raw.get(version) or sha_raw.get(os_name) or sha_raw.get("default", "")
+
+        # 版本来源优先级：--version 覆盖 > 多版本列表 > 按档位覆盖 > 默认版本
+        if args.version:
+            versions = [args.version]
+        elif pkg.get("version_matrix"):
+            versions = [str(v) for v in pkg["version_matrix"]]
         else:
-            sha256 = sha_raw or ""
+            versions = [pick(pkg.get("versions"), os_name) or pkg["version"]]
 
         openssl_version = pick(vendor["openssl"]["versions"], os_name)
         openssl_url_tpl = pick(vendor["openssl"].get("urls", {}), os_name) or vendor["openssl"]["url"]
@@ -65,42 +66,50 @@ def main() -> int:
             pick(vendor["libxcrypt"].get("urls", {}), os_name) or vendor["libxcrypt"]["url"]
         )
 
-        for arch in pkg.get("arches", list(architectures)):
-            arch_cfg = architectures[arch]
-            entries.append(
-                {
-                    # 键名会被 workflow 直接转成大写环境变量，故统一用 env 风格小写
-                    "pkg": args.package,
-                    "target_os": os_name,
-                    "target_arch": arch,
-                    "arch": arch,
-                    "arch_name": arch_cfg["arch_name"],
-                    "runner": arch_cfg["runner"],
-                    "platform": arch_cfg["platform"],
-                    "image": target["images"][arch],
-                    "el7_vault_base": target.get("vault_base", ""),
-                    "pkg_version": version,
-                    "source_url": fill(pkg["source_url"], version),
-                    "source_dir_name": fill(pkg["source_dir"], version),
-                    "source_sha256": sha256,
-                    "install_prefix": pkg["install_prefix"],
-                    "build_source_dir": cfg.get("build", {}).get("source_dir", "/data/src"),
-                    "output_dir": cfg.get("build", {}).get("output_dir", "/data/files"),
-                    "nginx_configure_args": pick(pkg.get("configure_args", ""), os_name) or "",
-                    "pkg_make_args": pick(pkg.get("make_args", ""), os_name) or "",
-                    "vendor_openssl": openssl_version,
-                    "vendor_openssl_url": fill(openssl_url_tpl, openssl_version),
-                    "vendor_pcre2": pcre2_version,
-                    "vendor_pcre2_url": fill(vendor["pcre2"]["url"], pcre2_version),
-                    "vendor_zlib_package": zlib["package"],
-                    "vendor_zlib_version": zlib["version"],
-                    "vendor_zlib_url": fill(zlib["url"], zlib["version"]),
-                    "vendor_zlib_dir": fill(zlib["dir"], zlib["version"]),
-                    "vendor_libxcrypt": libxcrypt_version,
-                    "vendor_libxcrypt_url": fill(libxcrypt_url_tpl, libxcrypt_version),
-                    "oss_prefix": oss.get("prefix", ""),
-                }
-            )
+        for version in versions:
+            # sha256 支持三种写法：单个字符串、按版本映射、按档位映射
+            sha_raw = pkg.get("sha256", "")
+            if isinstance(sha_raw, dict):
+                sha256 = sha_raw.get(version) or sha_raw.get(os_name) or sha_raw.get("default", "")
+            else:
+                sha256 = sha_raw or ""
+
+            for arch in pkg.get("arches", list(architectures)):
+                arch_cfg = architectures[arch]
+                entries.append(
+                    {
+                        # 键名会被 workflow 直接转成大写环境变量，故统一用 env 风格小写
+                        "pkg": args.package,
+                        "target_os": os_name,
+                        "target_arch": arch,
+                        "arch": arch,
+                        "arch_name": arch_cfg["arch_name"],
+                        "runner": arch_cfg["runner"],
+                        "platform": arch_cfg["platform"],
+                        "image": target["images"][arch],
+                        "el7_vault_base": target.get("vault_base", ""),
+                        "pkg_version": version,
+                        "source_url": fill(pkg["source_url"], version),
+                        "source_dir_name": fill(pkg["source_dir"], version),
+                        "source_sha256": sha256,
+                        "install_prefix": pkg["install_prefix"],
+                        "build_source_dir": cfg.get("build", {}).get("source_dir", "/data/src"),
+                        "output_dir": cfg.get("build", {}).get("output_dir", "/data/files"),
+                        "nginx_configure_args": pick(pkg.get("configure_args", ""), os_name) or "",
+                        "pkg_make_args": pick(pkg.get("make_args", ""), os_name) or "",
+                        "vendor_openssl": openssl_version,
+                        "vendor_openssl_url": fill(openssl_url_tpl, openssl_version),
+                        "vendor_pcre2": pcre2_version,
+                        "vendor_pcre2_url": fill(vendor["pcre2"]["url"], pcre2_version),
+                        "vendor_zlib_package": zlib["package"],
+                        "vendor_zlib_version": zlib["version"],
+                        "vendor_zlib_url": fill(zlib["url"], zlib["version"]),
+                        "vendor_zlib_dir": fill(zlib["dir"], zlib["version"]),
+                        "vendor_libxcrypt": libxcrypt_version,
+                        "vendor_libxcrypt_url": fill(libxcrypt_url_tpl, libxcrypt_version),
+                        "oss_prefix": oss.get("prefix", ""),
+                    }
+                )
 
     print(json.dumps({"matrix": {"include": entries}, "count": len(entries)}))
     return 0
