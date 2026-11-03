@@ -60,7 +60,12 @@ make install
 
 # 冒烟：ssl/crypto 应用存在，且 crypto NIF 能真正加载（验证 el7 的 rpath）
 erlang_lib="$INSTALL_PREFIX/lib/erlang/lib"
+log "erlang_inst_libdir: $(make -s erlang_inst_libdir_configured 2>/dev/null || echo '?')"
 log "已安装应用: $(ls "$erlang_lib" 2>/dev/null | tr '\n' ' ')"
+log "安装树（前两层目录）:"
+find "$INSTALL_PREFIX" -maxdepth 2 -type d 2>/dev/null | head -30 >&2
+log "查找 ssl/crypto 应用:"
+find "$INSTALL_PREFIX" -maxdepth 6 \( -name 'ssl-*' -o -name 'crypto-*' \) -type d 2>/dev/null | head -10 >&2
 for app in ssl crypto ssh; do
   if [ -f "$SOURCE_ROOT/$SOURCE_DIR_NAME/lib/$app/SKIP" ]; then
     log "lib/$app 被跳过，原因: $(cat "$SOURCE_ROOT/$SOURCE_DIR_NAME/lib/$app/SKIP")"
