@@ -31,7 +31,7 @@ OSS 前缀不走 Secrets，仍在 `config.yaml` 的 `oss.prefix`。
 - 手动指定版本：`workflow_dispatch` 的 `version` 输入覆盖配置值。
 - 覆盖 OSS 已有产物：手动触发时勾选 `force`；默认跳过已存在文件。
 
-当前状态：仅 Orchestrator 开启（`3.2.6`），其余软件关闭（`enabled: false`），需要时逐个开启。
+当前状态：全部软件关闭（`enabled: false`），需要时逐个开启。
 
 erlang 当前版本 `27.3.4.19`。如需一次构建多个版本，可用 `version_matrix` 列出，矩阵会展开成「版本 × 档位 × 架构」。el7 的 OpenSSL 1.0.2 缺少 OTP crypto 需要的 1.1+ API，构建时会自编译 `vendor.openssl`（1.1.1w）共享库并装到 `/data/erlang` 下。
 

@@ -234,7 +234,7 @@ packages:
       el7: "USE_KTLS="
 
   orchestrator:
-    enabled: true
+    enabled: false
     version: "3.2.6"
     os: [el7, el8, el9, el10]
     arches: [amd64, arm64]
