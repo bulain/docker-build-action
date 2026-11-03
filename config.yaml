@@ -223,9 +223,11 @@ packages:
       "3.4.7": "ccfd342f3724c2cd659574044d788f44e20b212467c6bd5edbbfc517a2775dca"
     # 四库静态植入（openssl/pcre2/zlib/libxcrypt），做法与 nginx 一致。
     # QUIC：el7 的 OpenSSL 1.1.1w 不启用；el8+ 走 OpenSSL compat 层。
+    # KTLS：TARGET=linux-glibc 默认开启，但 el7 的 3.10 内核头文件没有 linux/tls.h，
+    # 显式给空值关掉（显式赋值即视为已定义，default_opts 不会覆盖）。
     make_args:
       default: "USE_QUIC=1 USE_QUIC_OPENSSL_COMPAT=1"
-      el7: ""
+      el7: "USE_KTLS="
 
   erlang:
     enabled: false
