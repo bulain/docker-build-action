@@ -76,6 +76,7 @@ docs/adr/                      关键决策记录
   目标机需已安装对应 runtime 库。el7 的 gcc 4.8.5 可以编译 17.x。
 - HAProxy 在 el8 及以上启用 QUIC（`USE_QUIC_OPENSSL_COMPAT`）；el7 的 OpenSSL 1.1.1w 不满足，关闭。
   el7 还需显式 `USE_KTLS=`：`TARGET=linux-glibc` 默认开 KTLS，而 3.10 内核头文件没有 `linux/tls.h`。
+- HAProxy el7 只做 amd64：gcc 4.8.5 在 aarch64 上编译原子操作会 ICE。用 `arches_by_os.<os>` 可按档位收窄架构。
 - ossutil 固定 2.4.0，双架构、静态链接，可在宿主机直接运行。
 
 ## License

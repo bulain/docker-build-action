@@ -217,6 +217,10 @@ packages:
     os: [el7, el8, el9, el10]
     arches: [amd64, arm64]
     install_prefix: "/data/haproxy"
+    # el7 的 gcc 4.8.5 在 aarch64 上对 atomic_fetch_adddi 触发 ICE
+    # （could not split insn in final_scan_insn），el7 只做 amd64
+    arches_by_os:
+      el7: [amd64]
     source_url: "https://www.haproxy.org/download/3.4/src/haproxy-{version}.tar.gz"
     source_dir: "haproxy-{version}"
     sha256:

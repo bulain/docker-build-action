@@ -74,7 +74,11 @@ def main() -> int:
             else:
                 sha256 = sha_raw or ""
 
-            for arch in pkg.get("arches", list(architectures)):
+            # 架构范围可按档位收窄：arches_by_os.<os> 覆盖 arches
+            arches = pkg.get("arches_by_os", {}).get(os_name) or pkg.get(
+                "arches", list(architectures)
+            )
+            for arch in arches:
                 arch_cfg = architectures[arch]
                 entries.append(
                     {
