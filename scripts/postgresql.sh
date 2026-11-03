@@ -44,7 +44,10 @@ make -C contrib install
 PG_BIN="$PKG_PREFIX/bin/postgres"
 [ -x "$PG_BIN" ] || die "未找到 ${PG_BIN}"
 [ -x "$PKG_PREFIX/bin/initdb" ] || die "未找到 initdb"
-[ -f "$PKG_PREFIX/lib/postgresql/pg_stat_statements.so" ] || die "contrib 未安装：pg_stat_statements.so 缺失"
+
+# contrib 模块的安装位置由 pg_config 决定（默认 $prefix/lib，不是 $prefix/lib/postgresql）
+PKGLIBDIR=$("$PKG_PREFIX/bin/pg_config" --pkglibdir)
+[ -f "$PKGLIBDIR/pg_stat_statements.so" ] || die "contrib 未安装：${PKGLIBDIR}/pg_stat_statements.so 缺失"
 
 "$PG_BIN" --version >&2
 "$PKG_PREFIX/bin/pg_config" --configure >&2
