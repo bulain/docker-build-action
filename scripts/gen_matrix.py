@@ -56,6 +56,9 @@ def main() -> int:
         pcre2_version = pick(vendor["pcre2"]["versions"], os_name)
         zlib = pick(vendor["zlib"], os_name)
         libxcrypt_version = pick(vendor["libxcrypt"]["versions"], os_name)
+        libxcrypt_url_tpl = (
+            pick(vendor["libxcrypt"].get("urls", {}), os_name) or vendor["libxcrypt"]["url"]
+        )
 
         for arch in pkg.get("arches", list(architectures)):
             arch_cfg = architectures[arch]
@@ -89,7 +92,7 @@ def main() -> int:
                     "vendor_zlib_url": fill(zlib["url"], zlib["version"]),
                     "vendor_zlib_dir": fill(zlib["dir"], zlib["version"]),
                     "vendor_libxcrypt": libxcrypt_version,
-                    "vendor_libxcrypt_url": fill(vendor["libxcrypt"]["url"], libxcrypt_version),
+                    "vendor_libxcrypt_url": fill(libxcrypt_url_tpl, libxcrypt_version),
                     "oss_prefix": oss.get("prefix", ""),
                 }
             )

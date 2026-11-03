@@ -71,6 +71,9 @@ vendor:
   libxcrypt:
     versions: {default: "4.5.2", el8: "4.4.38", el7: "4.4.18"}
     url: "https://github.com/besser82/libxcrypt/releases/download/v{version}/libxcrypt-{version}.tar.xz"
+    urls:
+      # 4.4.18 没有发布附件，只有 tag 快照；无 configure，构建脚本会 autoreconf
+      el7: "https://github.com/besser82/libxcrypt/archive/refs/tags/v{version}.tar.gz"
 
 packages:
   nginx:

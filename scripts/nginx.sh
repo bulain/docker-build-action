@@ -43,8 +43,9 @@ extract_source "pcre2-$VENDOR_PCRE2.tar.gz" "$SOURCE_ROOT"
 fetch_source "$VENDOR_ZLIB_URL" "$VENDOR_ZLIB_DIR.tar.gz" "" "$VENDOR_ZLIB_PACKAGE"
 extract_source "$VENDOR_ZLIB_DIR.tar.gz" "$SOURCE_ROOT"
 
-fetch_source "$VENDOR_LIBCRYPT_URL" "libxcrypt-$VENDOR_LIBCRYPT.tar.xz" "" "libxcrypt"
-extract_source "libxcrypt-$VENDOR_LIBCRYPT.tar.xz" "$SOURCE_ROOT"
+LIBCRYPT_ARCHIVE=$(basename "$VENDOR_LIBCRYPT_URL")
+fetch_source "$VENDOR_LIBCRYPT_URL" "$LIBCRYPT_ARCHIVE" "" "libxcrypt"
+extract_source "$LIBCRYPT_ARCHIVE" "$SOURCE_ROOT"
 
 OPENSSL_DIR="$SOURCE_ROOT/openssl-$VENDOR_OPENSSL"
 PCRE2_DIR="$SOURCE_ROOT/pcre2-$VENDOR_PCRE2"
