@@ -192,6 +192,25 @@ packages:
       default: ""
       el7: "MALLOC=libc"
 
+  postgresql:
+    enabled: true
+    version: "17.10"
+    os: [el7, el8, el9, el10]
+    arches: [amd64, arm64]
+    install_prefix: "/data/postgresql"
+    source_url: "https://ftp.postgresql.org/pub/source/v{version}/postgresql-{version}.tar.gz"
+    source_dir: "postgresql-{version}"
+    sha256:
+      "17.10": "e4b43025f32ea3d271be64365d284c8462cffd41d80db0c3df6fc62417a2d9dc"
+    # 依赖系统动态库（openssl/readline/zlib/libicu/systemd），与 ansible-build
+    # 现有 PostgreSQL 产物保持一致；目标机需具备对应 runtime 库
+    configure_args: >-
+      --with-openssl
+      --with-zlib
+      --with-readline
+      --with-icu
+      --with-systemd
+
   erlang:
     enabled: false
     version: "27.3.4.19"
