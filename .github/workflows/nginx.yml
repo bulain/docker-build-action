@@ -2,7 +2,7 @@ name: build nginx
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
     paths:
       - "config.yaml"
       - "scripts/nginx.sh"
