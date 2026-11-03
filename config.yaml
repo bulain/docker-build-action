@@ -212,7 +212,7 @@ packages:
       --with-systemd
 
   haproxy:
-    enabled: true
+    enabled: false
     version: "3.4.7"
     os: [el7, el8, el9, el10]
     arches: [amd64, arm64]
