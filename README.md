@@ -55,8 +55,8 @@ Percona 官网下载慢，`scripts/upstream-percona.sh` 把 Percona Server / Xtr
 ## 监控组件镜像
 
 Alertmanager、alertmanager-webhook-adapter、Alloy、Grafana、VictoriaMetrics / VictoriaLogs 及其工具集（vmutils / vlutils）、
-两个 Grafana 数据源插件同样只从 GitHub / grafana.com 分发。这些组件走第二条镜像通道：下载上游发布件 → 按官方校验文件验证 →
-剥离调试符号 → 统一命名 `{name}-{version}-linux-{arch}.tar.gz`（数据源插件为 `.zip`）→ 上传 OSS。
+两个 Grafana 数据源插件同样只从 GitHub / grafana.com 分发。这些组件走第二条镜像通道：下载上游发布件 → 按官方校验文件验证 → 原样上传 OSS
+（保持上游文件名与压缩类型，不解压、不剥离、不改名）。
 
 - 配置：`config.yaml` 的 `monitoring` 段，每个组件在 `components` 下一条；入口脚本为 `scripts/<name>.sh`。
 - 触发：改 `config.yaml` 或对应脚本/workflow 时该组件自动跑；`monitoring.yml` 手动触发可全量重跑，也可在单组件 workflow 里勾选 `force`。
@@ -81,7 +81,7 @@ scripts/haproxy.sh             HAProxy 构建（同样静态植入四库）
 scripts/orchestrator.sh        Orchestrator 构建（Go + cgo/vendored sqlite）
 scripts/upstream-percona.sh    Percona 原件镜像同步（下载 -> 校验 -> OSS）
 scripts/upstream_resolve.py    upstream 段 -> 待镜像文件清单
-scripts/monitoring.sh          监控组件镜像共用逻辑（下载 -> 校验 -> 剥离 -> 上传）
+scripts/monitoring.sh          监控组件镜像共用逻辑（下载 -> 校验 -> 上传）
 scripts/monitoring_resolve.py  monitoring 段 -> 待镜像清单（含上游资产查询）
 scripts/alertmanager.sh        监控组件入口（另有 alertmanager-webhook-adapter / alloy /
                                grafana / victoria-logs / victoria-metrics / vmutils /

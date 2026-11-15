@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # 把监控组件的上游发布件镜像到 OSS。由 scripts/<component>.sh 调用，不直接执行。
 #
-# 与 upstream-percona.sh 的区别：产物分架构、用上游官方校验文件、tar.gz 统一
-# 改名并剥离调试符号。与 scripts/<pkg>.sh（packages）的区别：不编译、不分档位。
+# 与 upstream-percona.sh 的区别：产物分架构、用上游官方校验文件。与
+# scripts/<pkg>.sh（packages）的区别：不编译、不分档位。产物就是上游原件：
+# 保持原名与原压缩类型，不解压、不剥离、不改名。
 # 设计见 docs/adr/0004-monitoring-upstream-mirror.md。
 #
 # 用法（通常经由 scripts/<component>.sh 调用）：
@@ -10,7 +11,7 @@
 #   镜像参数：
 #     --all                  镜像全部组件（忽略 component 位置参数与 --component）
 #     --component <name>     只镜像某个组件，可多次
-#     --local <dir>          不联网：从目录读取上游资产，只做校验/剥离/改名后写到输出目录
+#     --local <dir>          不联网：从目录读取上游资产，校验后原样写到输出目录
 #     --output-dir <dir>     本地输出目录（默认 $REPO_ROOT/out/monitoring）
 #     --dry-run              只解析并列出清单
 #     --skip-checksums       上游校验文件缺失时跳过，而不是失败
@@ -20,7 +21,7 @@
 #   OSS_PREFIX     覆盖 config.yaml 的 monitoring.prefix
 #   OSSUTIL        ossutil 可执行文件路径（默认从 PATH 里找）
 #   GITHUB_TOKEN   可选，匿名 GitHub API 限 60 次/小时，每个 repo+tag 查一次
-#   WORK_DIR       下载与解包缓存目录（默认 ./out/monitoring）
+#   WORK_DIR       下载缓存目录（默认 ./out/monitoring）
 #   FORCE          true 时覆盖 OSS 上已存在的文件
 set -euo pipefail
 
@@ -115,7 +116,6 @@ fi
 # ---------- 依赖 ----------
 command -v curl >/dev/null 2>&1 || die "缺少 curl"
 command -v sha256sum >/dev/null 2>&1 || die "缺少 sha256sum"
-command -v strip >/dev/null 2>&1 || die "缺少 strip（binutils）"
 
 work_dir="${WORK_DIR:-$REPO_ROOT/out/monitoring}"
 output_dir="${output_dir_override:-$work_dir/packages}"
@@ -194,72 +194,18 @@ verify_official() {
     || die "${name} 官方 sha256 校验失败"
 }
 
-# ---------- 打包 ----------
-# transform_archive <输入> <kind> <输出> <剥离列表，逗号分隔>
-# tar.gz 解开后原结构重打；zip 解压后打成 tar.gz。剥离只作用于解包副本，
-# 已下载的上游原件保持字节不变；任何一步失败都保留解包目录便于排查。
-strip_count=0
-transform_archive() {
-  local in="$1" kind="$2" out="$3" strip_list="$4"
-  local stage="$work_dir/stage"
-  rm -rf "$stage"
-  mkdir -p "$stage"
-
-  if [ "$kind" = "zip" ]; then
-    command -v unzip >/dev/null 2>&1 || die "缺少 unzip（处理 alloy zip 用）"
-    unzip -q "$in" -d "$stage"
-    topdir=$(find "$stage" -mindepth 1 -maxdepth 1 -type d | head -n1)
-  else
-    tar -xf "$in" -C "$stage"
-    topdir=$(find "$stage" -mindepth 1 -maxdepth 1 -type d | head -n1)
-  fi
-
-  # 剥离目标相对顶层目录；没有顶层目录的（单文件 tarball）相对解包根
-  strip_count=0
-  local strip_root="${topdir:-$stage}" name path
-  IFS=',' read -ra names <<<"$strip_list"
-  local -a hits
-  for name in "${names[@]}"; do
-    [ -n "$name" ] || continue
-    path="$strip_root/$name"
-    hits=()
-    if [ ! -f "$path" ]; then
-      # 平铺包（adapter）二进制名 = 顶层目录名；zip 里带层级时（alloy）按文件名
-      # 递归找唯一匹配。只取唯一结果，避免同名多份时剥错文件
-      mapfile -t hits < <(find "$stage" -mindepth 1 -type f -name "$(basename "$name")")
-      if [ "${#hits[@]}" -eq 1 ]; then
-        path="${hits[0]}"
-      fi
-    fi
-    if [ ! -f "$path" ]; then
-      log "警告: 剥离目标不存在，跳过: ${name}（解包树里找到 ${#hits[@]} 处同名文件）"
-      continue
-    fi
-    strip --strip-all "$path"
-    strip_count=$((strip_count + 1))
-  done
-
-  # 保留解包出来的顶层目录名，解压到 /data 即得到上游同名目录
-  if [ -n "$topdir" ]; then
-    tar -czf "$out.tmp" -C "$stage" "$(basename "$topdir")"
-  else
-    tar -czf "$out.tmp" -C "$stage" .
-  fi
-  mv "$out.tmp" "$out"
-}
-
 # ---------- 单文件 ----------
 publish_one() {
-  local asset_name="$1" arch="$2" local_name="$3"
-  local url="$4" checksums_url="$5" strip_list="$6" kind="$7"
-  local dest="$output_dir/$local_name"
+  local asset_name="$1" url="$2" checksums_url="$3"
+  # 产物就是上游原件：名字、压缩类型都不动
+  local dest="$output_dir/$asset_name"
 
   rm -f "$dest" "$dest.sha256"
 
-  if [ -z "$local_dir" ] && "$OSSUTIL" stat "oss://${OSS_BUCKET}/${prefix}/${local_name}" "${oss_auth[@]}" >/dev/null 2>&1 \
+  if [ -z "$local_dir" ] && "$OSSUTIL" stat "oss://${OSS_BUCKET}/${prefix}/${asset_name}" "${oss_auth[@]}" >/dev/null 2>&1 \
      && [ "${FORCE:-false}" != "true" ]; then
-    log "跳过（OSS 已存在）: $local_name"
-    printf 'skip|%s|||已存在\n' "$local_name"
+    log "跳过（OSS 已存在）: $asset_name"
+    printf 'skip|%s|||已存在\n' "$asset_name"
     return 0
   fi
 
@@ -267,14 +213,8 @@ publish_one() {
   mkdir -p "$(dirname "$src_asset")"
 
   if [ -n "$local_dir" ]; then
-    # 离线验证允许放上游原名或改名后的名字
-    if [ -f "$local_dir/$asset_name" ]; then
-      cp -f "$local_dir/$asset_name" "$src_asset"
-    elif [ -f "$local_dir/$local_name" ]; then
-      cp -f "$local_dir/$local_name" "$src_asset"
-    else
-      die "--local 目录里没有 $asset_name（或改名后的 $local_name）"
-    fi
+    [ -f "$local_dir/$asset_name" ] || die "--local 目录里没有 $asset_name"
+    cp -f "$local_dir/$asset_name" "$src_asset"
   elif [ ! -s "$src_asset" ]; then
     download "$url" "$src_asset"
   else
@@ -304,43 +244,42 @@ publish_one() {
     log "警告: ${asset_name} 没有独立校验文件，跳过校验"
   fi
 
-  transform_archive "$src_asset" "$kind" "$dest" "$strip_list"
+  cp -f "$src_asset" "$dest"
   local sha
   sha=$(sha256sum "$dest" | cut -d' ' -f1)
-  printf '%s  %s\n' "$sha" "$local_name" > "$dest.sha256"
+  printf '%s  %s\n' "$sha" "$asset_name" > "$dest.sha256"
 
   if [ -n "$local_dir" ]; then
     log "已生成: $dest (sha256 ${sha})"
-    printf 'local|%s|%s||本地输出\n' "$local_name" "$sha"
+    printf 'local|%s|%s||本地输出\n' "$asset_name" "$sha"
     return 0
   fi
 
-  local key="oss://${OSS_BUCKET}/${prefix}/${local_name}"
+  local key="oss://${OSS_BUCKET}/${prefix}/${asset_name}"
   local prev
   prev=$(remote_sha "$key")
   if [ -n "$prev" ] && [ "$prev" != "$sha" ]; then
-    log "警告: ${local_name} 哈希与 OSS 记录不一致（远端 ${prev} / 本次 ${sha}）"
+    log "警告: ${asset_name} 哈希与 OSS 记录不一致（远端 ${prev} / 本次 ${sha}）"
   fi
 
   "$OSSUTIL" cp -f "$dest" "$key" "${oss_auth[@]}" >/dev/null || die "上传失败: $key"
   "$OSSUTIL" cp -f "$dest.sha256" "$key.sha256" "${oss_auth[@]}" >/dev/null || die "上传失败: $key.sha256"
   log "已上传: $key (sha256 ${sha})"
-  printf 'ok|%s|%s|%s|官方校验 + 剥离 %s 个二进制\n' "$local_name" "$key" "$sha" "$strip_count"
+  printf 'ok|%s|%s|%s|官方校验后原样上传\n' "$asset_name" "$key" "$sha"
 }
 
 # ---------- 主循环 ----------
 failures=0
 results=()
-while IFS=$'\t' read -r comp ver arch url filename local_name strip_list kind checksums; do
+while IFS=$'\t' read -r comp ver arch url filename checksums; do
   case "$arch" in -) arch="" ;; esac
-  case "$strip_list" in -) strip_list="" ;; esac
   log "---- ${comp} ${ver} ${arch:-无架构} ----"
-  if out=$(publish_one "$filename" "$arch" "$local_name" "$url" "$checksums" "$strip_list" "$kind"); then
+  if out=$(publish_one "$filename" "$url" "$checksums"); then
     results+=("$out")
   else
     failures=$((failures + 1))
-    results+=("fail|$local_name|||失败")
-    log "失败: $local_name"
+    results+=("fail|$filename|||失败")
+    log "失败: $filename"
   fi
 done < <(printf '%s\n' "$resolved")
 
@@ -359,7 +298,7 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
       printf '| %s | `%s` | `%s` | `%s` | %s |\n' "$st" "$file" "$key" "$sha" "$note"
     done
     echo ""
-    echo "> sha256 为剥离调试符号并改名后的产物的哈希；上游原件哈希已在下载时按官方校验文件验证。"
+    echo "> 产物为上游原件原样上传；sha256 与官方校验文件一致（无校验文件的组件除外）。"
   } >> "$GITHUB_STEP_SUMMARY"
 fi
 
