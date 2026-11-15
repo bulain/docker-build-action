@@ -145,23 +145,51 @@ monitoring:
     victoria-metrics:
       repo: "VictoriaMetrics/VictoriaMetrics"
       version: "v1.156.0"
+      # 上游命名把 linux 放在架构前：victoria-metrics-linux-amd64-{version}.tar.gz
+      assets:
+        amd64: "victoria-metrics-linux-amd64-{version}.tar.gz"
+        arm64: "victoria-metrics-linux-arm64-{version}.tar.gz"
+      asset_names:
+        amd64: "victoria-metrics-amd64-{version}.tar.gz"
+        arm64: "victoria-metrics-arm64-{version}.tar.gz"
       strip_binaries: [victoria-metrics-prod, vmagent-prod, vmalert-prod, vmalert-tool-prod, vmauth-prod, vmbackup-prod, vmbackupmanager-prod, vmctl-prod, vmrestore-prod]
 
     victoria-logs:
       # VictoriaLogs 自 2025 年起独立发版，主版本号 1.x，与 VictoriaMetrics 不对齐
       repo: "VictoriaMetrics/VictoriaLogs"
       version: "v1.54.0"
+      # 同 VM：{name}-linux-{arch}-{version}.tar.gz
+      assets:
+        amd64: "victoria-logs-linux-amd64-{version}.tar.gz"
+        arm64: "victoria-logs-linux-arm64-{version}.tar.gz"
+      asset_names:
+        amd64: "victoria-logs-amd64-{version}.tar.gz"
+        arm64: "victoria-logs-arm64-{version}.tar.gz"
       strip_binaries: [victoria-logs-prod, vlogscli-prod]
 
     vmutils:
       repo: "VictoriaMetrics/VictoriaMetrics"
       version: "v1.156.0"
       # 147 MB 里九成是调试符号，剥离后约 20 MB
+      # 上游命名：vmutils-linux-amd64-{version}.tar.gz
+      assets:
+        amd64: "vmutils-linux-amd64-{version}.tar.gz"
+        arm64: "vmutils-linux-arm64-{version}.tar.gz"
+      asset_names:
+        amd64: "vmutils-amd64-{version}.tar.gz"
+        arm64: "vmutils-arm64-{version}.tar.gz"
       strip_binaries: [vmagent-prod, vmalert-prod, vmalert-tool-prod, vmauth-prod, vmbackup-prod, vmbackupmanager-prod, vmctl-prod, vmrestore-prod, vmselect-prod, vminsert-prod, vmstorage-prod]
 
     vlutils:
       repo: "VictoriaMetrics/VictoriaLogs"
       version: "v1.54.0"
+      # 上游命名：vlutils-linux-amd64-{version}.tar.gz
+      assets:
+        amd64: "vlutils-linux-amd64-{version}.tar.gz"
+        arm64: "vlutils-linux-arm64-{version}.tar.gz"
+      asset_names:
+        amd64: "vlutils-amd64-{version}.tar.gz"
+        arm64: "vlutils-arm64-{version}.tar.gz"
       strip_binaries: [vlogscli-prod]
 
     victoriametrics-metrics-datasource:
