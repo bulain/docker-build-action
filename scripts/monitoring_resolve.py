@@ -16,6 +16,7 @@ import argparse
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 
 import yaml
@@ -43,9 +44,14 @@ def http_json(url: str) -> dict:
         return json.load(resp)
 
 
-def release_assets(repo: str, version: str) -> dict[str, str]:
+def release_assets(repo: str, tag: str) -> dict[str, str]:
     """tag -> {资产名: 下载地址}。只查单次 release，省匿名 API 配额。"""
-    data = http_json(f"{GITHUB_API}/repos/{repo}/releases/tags/{version}")
+    try:
+        data = http_json(f"{GITHUB_API}/repos/{repo}/releases/tags/{tag}")
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            raise SystemExit(f"{repo}: 找不到 release tag {tag}（检查 config.yaml 的 version/tag）") from exc
+        raise
     return {a["name"]: a["browser_download_url"] for a in data["assets"]}
 
 
@@ -165,7 +171,9 @@ def main() -> int:
             if key[0] == "grafana":
                 cache[key] = {"packages": grafana_packages(str(comp["version"]))}
             else:
-                cache[key] = {"assets": release_assets(comp["repo"], str(comp["version"]))}
+                # tag 可能与版本号不同名（prometheus 系 tag 带 v，资产名不带）
+                tag = str(comp.get("tag") or comp["version"])
+                cache[key] = {"assets": release_assets(comp["repo"], tag)}
         entry = cache[key]
 
         for arch in targets:

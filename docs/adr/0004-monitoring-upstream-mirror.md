@@ -22,6 +22,7 @@ Alertmanager、Grafana、Alloy、VictoriaMetrics / VictoriaLogs（含工具集�
 - **OSS 已存在即跳过**。产物名带版本，同一版本不重传；需要重传时手动触发并勾选 `force`。哈希与 OSS 记录不一致时告警，便于发现上游重打包。
 - **版本只允许一个**。公用的扫描目录按组件名前缀与版本过滤，多版本会让「已存在即跳过」失去意义；要保留多个版本时，把旧产物改名归档后再升级配置。
 - **仓库归属的两个坑**：原 `catatnight/alertmanager-webhook-adapter` 已不存在，改用 `bougou/alertmanager-webhook-adapter`；Grafana 插件在 `VictoriaMetrics/victorialogs-datasource` 与 `VictoriaMetrics/victoriametrics-datasource`（metrics 插件自 v0.12 起换了插件 ID，仓库名未变）。
+- **tag 与版本号不同名时用 `tag` 显式声明**。prometheus 系（alertmanager）release tag 带 `v` 前缀而资产名不带，`version` 必须保持无 `v` 才能拼出正确资产名，tag 查询走单独的 `tag` 字段；缺省回落到 `version`。
 
 ## 触发
 

@@ -86,6 +86,8 @@ monitoring:
       repo: "prometheus/alertmanager"
       # prometheus 的资产版本不带 v（tag 是 v0.35.0），这里也按这个格式写
       version: "0.35.0"
+      # release tag 与版本号不同名，单独声明；缺省时回落到 version
+      tag: "v0.35.0"
       assets:
         amd64: "alertmanager-{version}.linux-amd64.tar.gz"
         arm64: "alertmanager-{version}.linux-arm64.tar.gz"
