@@ -194,14 +194,14 @@ packages:
 
   postgresql:
     enabled: false
-    version: "17.10"
+    version: "17.12"
     os: [el7, el8, el9, el10]
     arches: [amd64, arm64]
     install_prefix: "/data/postgresql"
     source_url: "https://ftp.postgresql.org/pub/source/v{version}/postgresql-{version}.tar.gz"
     source_dir: "postgresql-{version}"
     sha256:
-      "17.10": "e4b43025f32ea3d271be64365d284c8462cffd41d80db0c3df6fc62417a2d9dc"
+      "17.12": "b46f61048797e9cf1728dd4ac459831f5126c4745581f729500541c86e59a8ac"
     # 依赖系统动态库（openssl/readline/zlib/libicu/systemd），与 ansible-build
     # 现有 PostgreSQL 产物保持一致；目标机需具备对应 runtime 库
     configure_args: >-
