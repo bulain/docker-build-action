@@ -18,6 +18,7 @@ Alertmanager、Grafana、Alloy、VictoriaMetrics / VictoriaLogs（含工具集�
 - **官方校验必过**。每个组件声明 `checksums.url`，下载原件后按上游记录的 sha256 校验，不过就失败；`--skip-checksums` 只用于上游临时缺校验文件的排查。Grafana 走 grafana.com 的版本 API：同一份 API 响应同时给出包地址与 sha256，下载后按它校验。上游发布件若被重新打包，校验会失败，此时需要人工确认后升级版本。
 - **原样搬运，不解压不改名**。OSS 上的 key 就是上游资产名（`vmutils-linux-amd64-v1.156.0.tar.gz`、`alloy-linux-amd64.zip`、`victoriametrics-logs-datasource-v0.34.0.zip`，adapter 的资产本来没有扩展名就保持没有）。与参考目录 `ansible-deploy/files/linux` 的组织方式一致，目标机按需自行选择解压方式；zip 不必再转 tar.gz，也不需要 binutils。
 - **扁平放在 `linux/` 根下**（延伸 ADR 0002 / 0003）。文件名自带组件名与版本，可与自编译产物、Percona 原件共存，靠前缀区分。
+- **Grafana 的包清单只用来确认版本/架构存在，不直接采用其 URL**。13.x 起 grafana.com API 返回的文件名带构建号并改用下划线（`grafana_13.3.1_<build>_linux_amd64.tar.gz`），会随每次构建变化；实际下载走稳定规范地址 `https://dl.grafana.com/oss/release/grafana-<version>.linux-<arch>.tar.gz`，OSS key 保持规范名。两个地址指向同一份上游产物。
 - **OSS 已存在即跳过**。产物名带版本，同一版本不重传；需要重传时手动触发并勾选 `force`。哈希与 OSS 记录不一致时告警，便于发现上游重打包。
 - **版本只允许一个**。公用的扫描目录按组件名前缀与版本过滤，多版本会让「已存在即跳过」失去意义；要保留多个版本时，把旧产物改名归档后再升级配置。
 - **仓库归属的两个坑**：原 `catatnight/alertmanager-webhook-adapter` 已不存在，改用 `bougou/alertmanager-webhook-adapter`；Grafana 插件在 `VictoriaMetrics/victorialogs-datasource` 与 `VictoriaMetrics/victoriametrics-datasource`（metrics 插件自 v0.12 起换了插件 ID，仓库名未变）。

@@ -78,20 +78,17 @@ def build_entry(
     if local:
         url = f"{local}/{asset}"
     elif not dry and comp.get("catalog") == "grafana":
-        # 包清单里的 os 字段对 tar.gz 记为 linux，与 rpm/deb 区分靠文件名
+        # 包清单里的 os 字段对 tar.gz 记为 linux，与 rpm/deb 区分靠文件名。
+        # 新版清单文件名带构建号且改用下划线（grafana_13.3.1_<build>_linux_amd64.tar.gz），
+        # 不能再拿配置里的规范名做匹配；清单只用于确认版本/架构确实存在，
+        # 下载走稳定的 oss/release 规范地址（文件名保持 grafana-<v>.linux-<arch>.tar.gz）。
         pkg = next(
-            (
-                p
-                for p in packages
-                if p.get("os") == "linux"
-                and p.get("arch") == arch
-                and p["url"].rsplit("/", 1)[-1] == local_name
-            ),
+            (p for p in packages if p.get("os") == "linux" and p.get("arch") == arch),
             None,
         )
         if pkg is None:
-            raise SystemExit(f"{name} {version} {arch}: grafana 包清单里找不到 {local_name}")
-        url = pkg["url"]
+            raise SystemExit(f"{name} {version} {arch}: grafana 包清单里找不到该 os/arch 组合")
+        url = f"https://dl.grafana.com/oss/release/{local_name}"
     elif not dry:
         url = (assets or {}).get(asset, "")
         if not url:
