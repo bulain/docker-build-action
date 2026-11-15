@@ -1,0 +1,91 @@
+name: mirror-monitoring
+
+# 可复用工作流：把监控组件的上游发布件镜像到 OSS。不编译，见 docs/adr/0004。
+# 由各组件入口（alertmanager.yml 等）与 monitoring.yml（全量）调用。
+
+on:
+  workflow_call:
+    inputs:
+      components:
+        description: "空格分隔的组件名；留空表示全部"
+        required: false
+        type: string
+        default: ""
+      force:
+        description: "覆盖 OSS 上已存在的产物"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 校验组件名
+        env:
+          COMPONENTS: ${{ inputs.components }}
+        run: |
+          set -euo pipefail
+          # 组件名会拼成 scripts/<name>.sh，只接受白名单里的值
+          allowed=$(python3 -c 'import yaml; print(" ".join(yaml.safe_load(open("config.yaml"))["monitoring"]["components"]))')
+          for c in $COMPONENTS; do
+            case " $allowed " in
+              *" $c "*) ;;
+              *) echo "未知组件: $c（可选: $allowed）" >&2; exit 1 ;;
+            esac
+          done
+
+      - name: 准备 PyYAML
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet "pyyaml>=6,<7"
+          echo "PYTHON=$RUNNER_TEMP/venv/bin/python" >> "$GITHUB_ENV"
+
+      - name: 安装 ossutil 与 binutils
+        run: |
+          # strip / readelf 不在 ubuntu-24.04 的基础镜像里
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils
+          set -euo pipefail
+          version=2.4.0
+          mkdir -p "$RUNNER_TEMP/ossutil"
+          curl -fsSL -o "$RUNNER_TEMP/ossutil.zip" \
+            "https://gosspublic.alicdn.com/ossutil/v2/${version}/ossutil-${version}-linux-amd64.zip"
+          unzip -q -o "$RUNNER_TEMP/ossutil.zip" -d "$RUNNER_TEMP/ossutil"
+          ossutil=$(find "$RUNNER_TEMP/ossutil" -type f -name ossutil | head -n1)
+          chmod +x "$ossutil"
+          echo "OSSUTIL=$ossutil" >> "$GITHUB_ENV"
+
+      - name: 预演清单
+        env:
+          COMPONENTS: ${{ inputs.components }}
+        run: |
+          set -euo pipefail
+          if [ -z "$COMPONENTS" ]; then
+            scripts/monitoring.sh --all --dry-run
+          else
+            for c in $COMPONENTS; do scripts/monitoring.sh "$c" --dry-run; done
+          fi
+
+      - name: 下载、校验并上传
+        env:
+          OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+          OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
+          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+          OSS_REGION: ${{ secrets.OSS_REGION }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE: ${{ inputs.force }}
+          COMPONENTS: ${{ inputs.components }}
+        run: |
+          set -euo pipefail
+          if [ -z "$COMPONENTS" ]; then
+            scripts/monitoring.sh --all
+          else
+            for c in $COMPONENTS; do scripts/monitoring.sh "$c"; done
+          fi

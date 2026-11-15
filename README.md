@@ -1,6 +1,7 @@
 # docker-build-action
 
-从官方源码编译 nginx / OpenResty / valkey / redis / Erlang / PostgreSQL / HAProxy / Orchestrator，产出 el7–el10 × amd64/arm64 的 tar.gz，上传阿里云 OSS。
+从官方源码编译 nginx / OpenResty / valkey / redis / Erlang / PostgreSQL / HAProxy / Orchestrator，产出 el7–el10 × amd64/arm64 的 tar.gz；
+同时把 Percona 与监控类（Alertmanager、Grafana、Alloy、VictoriaMetrics / VictoriaLogs 等）的上游发布件镜像到同一个 OSS。
 
 ## 工作方式
 
@@ -51,6 +52,20 @@ Percona 官网下载慢，`scripts/upstream-percona.sh` 把 Percona Server / Xtr
 
 决策与取舍见 `docs/adr/0003-upstream-binary-mirror.md`。
 
+## 监控组件镜像
+
+Alertmanager、alertmanager-webhook-adapter、Alloy、Grafana、VictoriaMetrics / VictoriaLogs 及其工具集（vmutils / vlutils）、
+两个 Grafana 数据源插件同样只从 GitHub / grafana.com 分发。这些组件走第二条镜像通道：下载上游发布件 → 按官方校验文件验证 →
+剥离调试符号 → 统一命名 `{name}-{version}-linux-{arch}.tar.gz`（数据源插件为 `.zip`）→ 上传 OSS。
+
+- 配置：`config.yaml` 的 `monitoring` 段，每个组件在 `components` 下一条；入口脚本为 `scripts/<name>.sh`。
+- 触发：改 `config.yaml` 或对应脚本/workflow 时该组件自动跑；`monitoring.yml` 手动触发可全量重跑，也可在单组件 workflow 里勾选 `force`。
+- OSS 路径：`oss://{bucket}/{prefix}/{filename}` + 同名 `.sha256`；默认前缀 `linux`，与自编译产物、Percona 原件同层。
+- 校验：下载原件后按上游 `SHA256SUMS`（或 grafana.com API 给出的 sha256）校验，不通过即失败。
+- 本地验证：`scripts/<name>.sh --local <dir>` 从目录读取上游资产，结果写到 `out/monitoring/packages/`，不联网、不上传。
+
+决策与取舍见 `docs/adr/0004-monitoring-upstream-mirror.md`。
+
 ## 目录
 
 ```
@@ -66,6 +81,12 @@ scripts/haproxy.sh             HAProxy 构建（同样静态植入四库）
 scripts/orchestrator.sh        Orchestrator 构建（Go + cgo/vendored sqlite）
 scripts/upstream-percona.sh    Percona 原件镜像同步（下载 -> 校验 -> OSS）
 scripts/upstream_resolve.py    upstream 段 -> 待镜像文件清单
+scripts/monitoring.sh          监控组件镜像共用逻辑（下载 -> 校验 -> 剥离 -> 上传）
+scripts/monitoring_resolve.py  monitoring 段 -> 待镜像清单（含上游资产查询）
+scripts/alertmanager.sh        监控组件入口（另有 alertmanager-webhook-adapter / alloy /
+                               grafana / victoria-logs / victoria-metrics / vmutils /
+                               vlutils / victoriametrics-logs-datasource /
+                               victoriametrics-metrics-datasource）
 scripts/gen_matrix.py          config.yaml -> Actions matrix
 .github/workflows/_build.yml   可复用工作流（矩阵 -> 容器编译 -> OSS）
 .github/workflows/nginx.yml    nginx 触发入口
@@ -77,6 +98,9 @@ scripts/gen_matrix.py          config.yaml -> Actions matrix
 .github/workflows/haproxy.yml  HAProxy 触发入口
 .github/workflows/orchestrator.yml Orchestrator 触发入口
 .github/workflows/upstream-percona.yml Percona 原件镜像同步入口
+.github/workflows/_monitoring.yml      监控组件镜像可复用工作流
+.github/workflows/<component>.yml      监控组件镜像入口（10 个）
+.github/workflows/monitoring.yml       监控组件全量镜像入口
 GLOSSARY.md                    术语
 docs/adr/                      关键决策记录
 ```

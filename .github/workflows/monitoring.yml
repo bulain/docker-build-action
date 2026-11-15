@@ -1,0 +1,24 @@
+name: mirror monitoring (all)
+
+# 一键镜像全部监控组件。日常改 config.yaml 时各组件入口各自触发，
+# 这里只做手动兜底与首次初始化。
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "覆盖 OSS 上已存在的产物"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    uses: ./.github/workflows/_monitoring.yml
+    with:
+      components: ""
+      force: ${{ inputs.force || false }}
+    secrets: inherit

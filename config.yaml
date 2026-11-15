@@ -69,6 +69,116 @@ upstream:
       versions: ["3.7.0"]
       tiers: []     # 空列表 = 不展开档位
 
+# 监控组件的上游发布件镜像。与 upstream 的区别：产物分架构（Go 静态二进制，
+# 一套 Linux 文件覆盖 el7–el10）、随包附带官方校验文件、校验后剥掉 debuginfo。
+# 与 packages 的区别：不编译。见 docs/adr/0004-monitoring-upstream-mirror.md。
+#
+# 每个组件的 versions 只能有一个元素：产物名自带版本号，扫描共用前缀的目录
+# 再按版本过滤，多版本会让「已存在即跳过」的判定失去意义。
+monitoring:
+  prefix: "linux"      # 与 packages / upstream 共用一层，靠文件名区分
+  architectures: [amd64, arm64]
+
+  components:
+    alertmanager:
+      repo: "prometheus/alertmanager"
+      # prometheus 的资产版本不带 v（tag 是 v0.35.0），配置文件也直接按这个格式写
+      version: "0.35.0"
+      # 只取这两个架构；本地统一改名为 alertmanager-{version}-linux-{arch}.tar.gz
+      # （上游用点分隔版本与平台）
+      assets:
+        amd64: "alertmanager-{version}.linux-amd64.tar.gz"
+        arm64: "alertmanager-{version}.linux-arm64.tar.gz"
+      asset_names:
+        amd64: "alertmanager-{version}-linux-amd64.tar.gz"
+        arm64: "alertmanager-{version}-linux-arm64.tar.gz"
+      strip_binaries: [alertmanager, amtool]
+      # 校验文件格式：sha256 后跟两格空格和文件名
+      checksums:
+        url: "https://github.com/prometheus/alertmanager/releases/download/v{version}/sha256sums.txt"
+        format: "sha256sum"
+
+    alertmanager-webhook-adapter:
+      # 原仓库 catatnight/alertmanager-webhook-adapter 已不存在，bougou 是现行维护分支
+      repo: "bougou/alertmanager-webhook-adapter"
+      version: "v1.1.14"
+      # 资产没有扩展名，asset_names 是改名后的目标名
+      assets:
+        amd64: "alertmanager-webhook-adapter-{version}-linux-amd64"
+        arm64: "alertmanager-webhook-adapter-{version}-linux-arm64"
+      asset_names:
+        amd64: "alertmanager-webhook-adapter-{version}-linux-amd64.tar.gz"
+        arm64: "alertmanager-webhook-adapter-{version}-linux-arm64.tar.gz"
+      strip_binaries: [alertmanager-webhook-adapter]
+      checksums:
+        url: "https://github.com/bougou/alertmanager-webhook-adapter/releases/download/{version}/SHA256SUMS"
+        format: "sha256sum"
+
+    alloy:
+      repo: "grafana/alloy"
+      version: "v1.22.0"
+      # alloy 只发 zip；统一转成 tar.gz，目标机不再需要 unzip
+      assets:
+        amd64: "alloy-linux-amd64.zip"
+        arm64: "alloy-linux-arm64.zip"
+      asset_names:
+        amd64: "alloy-amd64-{version}.tar.gz"
+        arm64: "alloy-arm64-{version}.tar.gz"
+      strip_binaries: [alloy]
+      checksums:
+        url: "https://github.com/grafana/alloy/releases/download/{version}/SHA256SUMS"
+        format: "sha256sum"
+
+    grafana:
+      # release 资产里没有 Linux tar.gz，走 grafana.com 的版本 API 取包清单
+      catalog: "grafana"
+      version: "13.3.1"
+      # 与 upstream 不同：grafana 的 tar.gz 自带 Linux 段，改名时不重复插入
+      assets:
+        amd64: "grafana-{version}.linux-amd64.tar.gz"
+        arm64: "grafana-{version}.linux-arm64.tar.gz"
+      asset_names:
+        amd64: "grafana-{version}-linux-amd64.tar.gz"
+        arm64: "grafana-{version}-linux-arm64.tar.gz"
+      strip_binaries: [bin/grafana]
+
+    victoria-metrics:
+      repo: "VictoriaMetrics/VictoriaMetrics"
+      version: "v1.156.0"
+      strip_binaries: [victoria-metrics-prod, vmagent-prod, vmalert-prod, vmalert-tool-prod, vmauth-prod, vmbackup-prod, vmbackupmanager-prod, vmctl-prod, vmrestore-prod]
+
+    victoria-logs:
+      # VictoriaLogs 自 2025 年起独立发版，主版本号 1.x，与 VictoriaMetrics 不对齐
+      repo: "VictoriaMetrics/VictoriaLogs"
+      version: "v1.54.0"
+      strip_binaries: [victoria-logs-prod, vlogscli-prod]
+
+    vmutils:
+      repo: "VictoriaMetrics/VictoriaMetrics"
+      version: "v1.156.0"
+      # 147 MB 里九成是调试符号，剥离后约 20 MB
+      strip_binaries: [vmagent-prod, vmalert-prod, vmalert-tool-prod, vmauth-prod, vmbackup-prod, vmbackupmanager-prod, vmctl-prod, vmrestore-prod, vmselect-prod, vminsert-prod, vmstorage-prod]
+
+    vlutils:
+      repo: "VictoriaMetrics/VictoriaLogs"
+      version: "v1.54.0"
+      strip_binaries: [vlogscli-prod]
+
+    victoriametrics-metrics-datasource:
+      # Grafana 数据源插件：前端 zip，只有一份，不按架构区分
+      repo: "VictoriaMetrics/victoriametrics-datasource"
+      version: "v1.0.1"
+      single: true
+      asset_names:
+        default: "victoriametrics-metrics-datasource-{version}.zip"
+
+    victoriametrics-logs-datasource:
+      repo: "VictoriaMetrics/victorialogs-datasource"
+      version: "v0.34.0"
+      single: true
+      asset_names:
+        default: "victoriametrics-logs-datasource-{version}.zip"
+
 # 静态植入组件。档位未列出的键回落到 default。
 vendor:
   openssl:

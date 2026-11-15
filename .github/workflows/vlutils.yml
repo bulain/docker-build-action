@@ -1,0 +1,33 @@
+name: mirror vlutils
+
+# 镜像 VictoriaLogs 工具集。不编译，见 docs/adr/0004。
+# 改 config.yaml 会触发全部组件；本入口只筛出自己的那部分，避免每次改配置都跑十份。
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - "config.yaml"
+      - "scripts/vlutils.sh"
+      - "scripts/monitoring.sh"
+      - "scripts/monitoring_resolve.py"
+      - ".github/workflows/vlutils.yml"
+      - ".github/workflows/_monitoring.yml"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "覆盖 OSS 上已存在的产物"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    uses: ./.github/workflows/_monitoring.yml
+    with:
+      components: "vlutils"
+      force: ${{ inputs.force || false }}
+    secrets: inherit
