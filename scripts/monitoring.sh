@@ -216,19 +216,23 @@ transform_archive() {
 
   # 剥离目标相对顶层目录；没有顶层目录的（单文件 tarball）相对解包根
   strip_count=0
-  local strip_root="${topdir:-$stage}" name path candidate
+  local strip_root="${topdir:-$stage}" name path
   IFS=',' read -ra names <<<"$strip_list"
+  local -a hits
   for name in "${names[@]}"; do
     [ -n "$name" ] || continue
     path="$strip_root/$name"
-    # 平铺 tarball（adapter）里二进制在解包根、名为顶层目录名；
-    # 只在这种情形回落，否则第二项会再次命中已剥离过的同一个文件
-    if [ ! -f "$path" ] && [ -n "$topdir" ]; then
-      candidate="$strip_root/$(basename "$topdir")"
-      [ -f "$candidate" ] && [ "$name" = "$(basename "$topdir")" ] && path="$candidate"
+    hits=()
+    if [ ! -f "$path" ]; then
+      # 平铺包（adapter）二进制名 = 顶层目录名；zip 里带层级时（alloy）按文件名
+      # 递归找唯一匹配。只取唯一结果，避免同名多份时剥错文件
+      mapfile -t hits < <(find "$stage" -mindepth 1 -type f -name "$(basename "$name")")
+      if [ "${#hits[@]}" -eq 1 ]; then
+        path="${hits[0]}"
+      fi
     fi
     if [ ! -f "$path" ]; then
-      log "警告: 剥离目标不存在，跳过: ${name}"
+      log "警告: 剥离目标不存在，跳过: ${name}（解包树里找到 ${#hits[@]} 处同名文件）"
       continue
     fi
     strip --strip-all "$path"
