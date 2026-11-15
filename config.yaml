@@ -152,7 +152,8 @@ monitoring:
       asset_names:
         amd64: "victoria-metrics-amd64-{version}.tar.gz"
         arm64: "victoria-metrics-arm64-{version}.tar.gz"
-      strip_binaries: [victoria-metrics-prod, vmagent-prod, vmalert-prod, vmalert-tool-prod, vmauth-prod, vmbackup-prod, vmbackupmanager-prod, vmctl-prod, vmrestore-prod]
+      # 单节点包只有一个二进制；其余 vm*-prod 在 vmutils / cluster 包里
+      strip_binaries: [victoria-metrics-prod]
 
     victoria-logs:
       # VictoriaLogs 自 2025 年起独立发版，主版本号 1.x，与 VictoriaMetrics 不对齐
@@ -165,7 +166,8 @@ monitoring:
       asset_names:
         amd64: "victoria-logs-amd64-{version}.tar.gz"
         arm64: "victoria-logs-arm64-{version}.tar.gz"
-      strip_binaries: [victoria-logs-prod, vlogscli-prod]
+      # 单节点包只有 victoria-logs-prod；vlogscli-prod 在 vlutils 包里
+      strip_binaries: [victoria-logs-prod]
 
     vmutils:
       repo: "VictoriaMetrics/VictoriaMetrics"
@@ -178,7 +180,8 @@ monitoring:
       asset_names:
         amd64: "vmutils-amd64-{version}.tar.gz"
         arm64: "vmutils-arm64-{version}.tar.gz"
-      strip_binaries: [vmagent-prod, vmalert-prod, vmalert-tool-prod, vmauth-prod, vmbackup-prod, vmbackupmanager-prod, vmctl-prod, vmrestore-prod, vmselect-prod, vminsert-prod, vmstorage-prod]
+      # vmselect/vminsert/vmstorage 在 -cluster 包里，不在 vmutils
+      strip_binaries: [vmagent-prod, vmalert-prod, vmalert-tool-prod, vmauth-prod, vmbackup-prod, vmbackupmanager-prod, vmctl-prod, vmrestore-prod]
 
     vlutils:
       repo: "VictoriaMetrics/VictoriaLogs"

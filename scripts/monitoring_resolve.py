@@ -69,7 +69,7 @@ def build_entry(
     local_name = (raw_names.get(key) or fallback).format(version=version)
 
     # 上游资产名：assets 显式列出（上游名与产物名不同的组件必须写）；
-    # 否则认为上游名与产物名同构（VictoriaMetrics / VictoriaLogs / alloy / 数据源插件）。
+    # 否则认为上游名与产物名同构（alloy / 数据源插件）。
     # fallback 固定是 .tar.gz，单架构且产物是 zip 时（数据源插件）用产物名兜底
     asset = (raw_assets.get(key) or (local_name if single else fallback)).format(version=version)
     # kind 按上游资产判断：zip 要解压后重打成 tar.gz，产物名一定是 .tar.gz，

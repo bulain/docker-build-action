@@ -216,16 +216,21 @@ transform_archive() {
 
   # 剥离目标相对顶层目录；没有顶层目录的（单文件 tarball）相对解包根
   strip_count=0
-  local strip_root="${topdir:-$stage}" name path
+  local strip_root="${topdir:-$stage}" name path candidate
   IFS=',' read -ra names <<<"$strip_list"
   for name in "${names[@]}"; do
     [ -n "$name" ] || continue
     path="$strip_root/$name"
-    # 单文件平铺时先按原样找，再按顶层目录名剥离一次（adapter 的二进制就在根下）
+    # 平铺 tarball（adapter）里二进制在解包根、名为顶层目录名；
+    # 只在这种情形回落，否则第二项会再次命中已剥离过的同一个文件
     if [ ! -f "$path" ] && [ -n "$topdir" ]; then
-      path="$strip_root/$(basename "$topdir")"
+      candidate="$strip_root/$(basename "$topdir")"
+      [ -f "$candidate" ] && [ "$name" = "$(basename "$topdir")" ] && path="$candidate"
     fi
-    [ -f "$path" ] || die "剥离目标不存在: ${name}（目录结构可能变了）"
+    if [ ! -f "$path" ]; then
+      log "警告: 剥离目标不存在，跳过: ${name}"
+      continue
+    fi
     strip --strip-all "$path"
     strip_count=$((strip_count + 1))
   done
