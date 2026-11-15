@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import urllib.request
 
@@ -31,7 +32,12 @@ def default_name(name: str, key: str, version: str) -> str:
 
 
 def http_json(url: str) -> dict:
-    req = urllib.request.Request(url, headers={"User-Agent": "docker-build-action"})
+    headers = {"User-Agent": "docker-build-action"}
+    # 匿名 GitHub API 限 60 次/小时，CI 一次解析会查多个 repo+tag
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=30) as resp:
         return json.load(resp)
 
