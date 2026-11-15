@@ -33,9 +33,10 @@ def default_name(name: str, key: str, version: str) -> str:
 
 def http_json(url: str) -> dict:
     headers = {"User-Agent": "docker-build-action"}
-    # 匿名 GitHub API 限 60 次/小时，CI 一次解析会查多个 repo+tag
+    # 匿名 GitHub API 限 60 次/小时，CI 一次解析会查多个 repo+tag。
+    # 只发给 api.github.com：grafana.com 收到 GitHub token 会 401
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
-    if token:
+    if token and url.startswith(GITHUB_API):
         headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=30) as resp:
