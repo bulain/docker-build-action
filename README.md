@@ -35,6 +35,22 @@ OSS 前缀不走 Secrets，仍在 `config.yaml` 的 `oss.prefix`。
 
 erlang 当前版本 `27.3.4.19`。如需一次构建多个版本，可用 `version_matrix` 列出，矩阵会展开成「版本 × 档位 × 架构」。el7 的 OpenSSL 1.0.2 缺少 OTP crypto 需要的 1.1+ API，构建时会自编译 `vendor.openssl`（1.1.1w）共享库并装到 `/data/erlang` 下。
 
+## 上游原件镜像（Percona）
+
+Percona 官网下载慢，`scripts/upstream-percona.sh` 把 Percona Server / XtraBackup / Toolkit 的
+二进制 tarball 原样搬到 OSS，目标机改从 OSS 取。与上面的编译流程无关，不打包、不改名、不分档位。
+
+- 配置：`config.yaml` 的 `upstream` 段；每个组件写**完整版本串**（含构建号，`9.7.2-2` 这种，无法从大版本推断）。
+- 当前镜像：percona-server 8.4.10-10 / 9.7.2-3，percona-xtrabackup 8.4.0-7 / 9.7.2-2，percona-toolkit 3.7.0；
+  x86_64 minimal，glibc 2.28 / 2.34，xtrabackup 另有 2.39。
+- 触发：改 `config.yaml` 自动跑；也可手动指定 `component` / `version` / `force`。
+- OSS 路径：`oss://{bucket}/linux/{原始文件名}` + 同名 `.sha256`。
+- 校验：Percona 不提供校验文件，`.sha256` 由脚本首次下载后自算（非官方值），重跑时与远端比对、不一致则告警。
+- 本地跑：`OSS_BUCKET=... OSS_ENDPOINT=... scripts/upstream-percona.sh --dry-run`（预演），
+  去掉 `--dry-run` 前需 `ossutil` 可用且凭证就绪（环境变量或 `~/.ossutilconfig`）。
+
+决策与取舍见 `docs/adr/0003-upstream-binary-mirror.md`。
+
 ## 目录
 
 ```
@@ -48,6 +64,8 @@ scripts/erlang.sh              Erlang/OTP 构建
 scripts/postgresql.sh          PostgreSQL 构建（含 contrib）
 scripts/haproxy.sh             HAProxy 构建（同样静态植入四库）
 scripts/orchestrator.sh        Orchestrator 构建（Go + cgo/vendored sqlite）
+scripts/upstream-percona.sh    Percona 原件镜像同步（下载 -> 校验 -> OSS）
+scripts/upstream_resolve.py    upstream 段 -> 待镜像文件清单
 scripts/gen_matrix.py          config.yaml -> Actions matrix
 .github/workflows/_build.yml   可复用工作流（矩阵 -> 容器编译 -> OSS）
 .github/workflows/nginx.yml    nginx 触发入口
@@ -58,6 +76,7 @@ scripts/gen_matrix.py          config.yaml -> Actions matrix
 .github/workflows/postgresql.yml PostgreSQL 触发入口
 .github/workflows/haproxy.yml  HAProxy 触发入口
 .github/workflows/orchestrator.yml Orchestrator 触发入口
+.github/workflows/upstream-percona.yml Percona 原件镜像同步入口
 GLOSSARY.md                    术语
 docs/adr/                      关键决策记录
 ```

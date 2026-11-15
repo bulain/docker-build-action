@@ -39,6 +39,36 @@ targets:
   el10:
     images: {amd64: "almalinux:10", arm64: "almalinux:10"}
 
+# 上游二进制原件镜像。与 packages 语义不同：这里不编译、不分档位、不打我们的
+# 命名约定，只把 Percona 发布的 tarball 原样搬到 OSS，供目标机快速取用。
+# 设计见 docs/adr/0003-upstream-binary-mirror.md。
+upstream:
+  # Percona 的 glibc 档位编号不跟 RHEL 对齐：el8=2.28，el9=2.34，el10=2.39。
+  # 2.35 只服务 Ubuntu 22.04，目标档位里没有对应发行版，故不请求。
+  glibc_tiers: ["2.28", "2.34"]
+  prefix: "linux"     # 与 packages 共用一层；文件名自带 Percona- 前缀，不会混
+
+  components:
+    percona-server:
+      # 目录名与文件名都用完整版本串（含构建号），构建号无法从大版本推断，
+      # 例如 PS 9.7.2-3 对应 XtraBackup 9.7.2-2，必须逐项写死。
+      url: "https://downloads.percona.com/downloads/Percona-Server-{major_minor}/Percona-Server-{version}/binary/tarball/Percona-Server-{version}-Linux.x86_64.glibc{tier}-minimal.tar.gz"
+      # el7(glibc 2.17) 没有 Percona 二进制 tarball，走官方 RPM
+      versions: ["8.4.10-10", "9.7.2-3"]
+
+    percona-xtrabackup:
+      # 注意与 PS 的命名差异：architecture 段用连字符 Linux-x86_64，PS 用点 Linux.x86_64
+      url: "https://downloads.percona.com/downloads/Percona-XtraBackup-{major_minor}/Percona-XtraBackup-{version}/binary/tarball/percona-xtrabackup-{version}-Linux-x86_64.glibc{tier}-minimal.tar.gz"
+      versions: ["8.4.0-7", "9.7.2-2"]
+      # xtrabackup 额外发布 glibc2.39 档（el10 用），PS 没有
+      extra_glibc_tiers: ["2.39"]
+
+    percona-toolkit:
+      # toolkit 不分 glibc 档、不带 minimal 后缀，只有一个 _x86_64 包
+      url: "https://downloads.percona.com/downloads/percona-toolkit/{version}/binary/tarball/percona-toolkit-{version}_x86_64.tar.gz"
+      versions: ["3.7.0"]
+      tiers: []     # 空列表 = 不展开档位
+
 # 静态植入组件。档位未列出的键回落到 default。
 vendor:
   openssl:
