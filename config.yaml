@@ -194,7 +194,9 @@ vendor:
     el7:
       package: "zlib"
       version: "1.3.2"
-      url: "https://zlib.net/fossils/zlib-{version}.tar.gz"
+      # zlib.net 对 CI 数据中心 IP 稳定返回拦截页（HTTP 200 + HTML），改用官方仓库 tag 快照；
+      # GitHub 归档解压顶层为 zlib-{version}（tag 的 v 前缀会被剥离），dir 不用改
+      url: "https://github.com/madler/zlib/archive/refs/tags/v{version}.tar.gz"
       dir: "zlib-{version}"
   libxcrypt:
     versions: {default: "4.5.2", el8: "4.4.38", el7: "4.4.18"}
