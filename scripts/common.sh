@@ -150,16 +150,28 @@ glibc_tag() {
   printf 'glibc%s' "$v"
 }
 
-# package_install_dir <安装前缀> <输出目录>
-# 归档时保留绝对路径结构（tar -C / data/nginx），解压到 / 即落到原前缀。
+# package_install_dir <安装前缀> <输出目录> [归档基目录]
+# 传入归档基目录（仓库内各构建脚本统一传 /data）后剥离该层，归档条目为 <pkg>/...，
+# 需解压到该基目录下落回原前缀；不传则 tar -C / 保留绝对路径结构。
 package_install_dir() {
-  local prefix="$1" outdir="$2" file tag arch
+  local prefix="$1" outdir="$2" base="${3:-/}" file tag arch rel
   tag=$(glibc_tag)
   arch=$(uname -m)
   file="${PKG}-${PKG_VERSION}-linux-${tag}-${arch}.tar.gz"
 
+  base="${base%/}"
+  [ -n "$base" ] || base=/
+  if [ "$base" = / ]; then
+    rel="${prefix#/}"
+  else
+    case "$prefix" in
+      "$base"/*) rel="${prefix#"$base"/}" ;;
+      *) die "安装前缀 ${prefix} 不在归档基目录 ${base} 下" ;;
+    esac
+  fi
+
   mkdir -p "$outdir"
-  tar -czf "$outdir/$file" -C / "${prefix#/}"
+  tar -czf "$outdir/$file" -C "$base" "$rel"
   (cd "$outdir" && sha256sum "$file" > "$file.sha256")
 
   cat > "$outdir/manifest.env" <<EOF

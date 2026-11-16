@@ -50,4 +50,5 @@ make PREFIX="$PKG_PREFIX" install
 verify_static_embed "$PKG_PREFIX/bin/redis-server" redis-server
 "$PKG_PREFIX/bin/redis-server" --version >&2
 
-package_install_dir "$PKG_PREFIX" "$OUTPUT_DIR"
+# 归档内不带 data/ 这层（条目为 <pkg>/...），解压到 /data 即落回原前缀
+package_install_dir "$PKG_PREFIX" "$OUTPUT_DIR" "$(dirname "$PKG_PREFIX")"

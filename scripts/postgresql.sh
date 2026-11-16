@@ -52,4 +52,5 @@ PKGLIBDIR=$("$PKG_PREFIX/bin/pg_config" --pkglibdir)
 "$PG_BIN" --version >&2
 "$PKG_PREFIX/bin/pg_config" --configure >&2
 
-package_install_dir "$PKG_PREFIX" "$OUTPUT_DIR"
+# 归档内不带 data/ 这层（条目为 <pkg>/...），解压到 /data 即落回原前缀
+package_install_dir "$PKG_PREFIX" "$OUTPUT_DIR" "$(dirname "$PKG_PREFIX")"

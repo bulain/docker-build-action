@@ -13,7 +13,7 @@
 产物命名：`{pkg}-{version}-linux-glibc{X.Y}-{arch}.tar.gz` + 同名 `.sha256`。
 OSS 路径：`oss://{bucket}/{prefix}/{filename}`，默认前缀 `linux`。
 
-tar 内保留绝对路径结构（`data/nginx/...`），解压到 `/` 即落到 `/data/nginx`。
+tar 内不带 `data/` 这层（条目为 `<pkg>/...`），解压到 `/data`（`tar -xzf <file> -C /data`）即落到 `/data/<pkg>`。
 
 ## 一次性配置
 

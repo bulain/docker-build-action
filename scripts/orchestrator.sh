@@ -82,4 +82,5 @@ printf '%s\n' "$version_out" >&2
 printf '%s\n' "$version_out" | grep -F "$PKG_VERSION" >/dev/null \
   || die "orchestrator 版本输出不含 ${PKG_VERSION}"
 
-package_install_dir "$PKG_PREFIX" "$OUTPUT_DIR"
+# 归档内不带 data/ 这层（条目为 <pkg>/...），解压到 /data 即落回原前缀
+package_install_dir "$PKG_PREFIX" "$OUTPUT_DIR" "$(dirname "$PKG_PREFIX")"

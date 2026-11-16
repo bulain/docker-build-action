@@ -77,4 +77,5 @@ test -d "$erlang_lib"/crypto-* || die "crypto 应用未安装（见上面的 SKI
   '{ok, _} = application:ensure_all_started(crypto), io:format("OTP ~s~n", [erlang:system_info(otp_release)]), halt().' \
   >&2
 
-package_install_dir "$PKG_PREFIX" "$OUTPUT_DIR"
+# 归档内不带 data/ 这层（条目为 <pkg>/...），解压到 /data 即落回原前缀
+package_install_dir "$PKG_PREFIX" "$OUTPUT_DIR" "$(dirname "$PKG_PREFIX")"
