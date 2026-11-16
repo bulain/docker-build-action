@@ -251,6 +251,50 @@ middleware:
         url: "https://github.com/alibaba/nacos/releases/download/{version}/nacos-server-{version}.tar.gz.md5"
         algorithm: "md5"
 
+    mysql:
+      # MySQL 不走 GitHub：目录页（os=2 = Linux Generic）的 HTML 表格内嵌每个资产的
+      # MD5，没有独立校验文件；resolver 抓页面解析，下载走 cdn.mysql.com 稳定直链。
+      # 产物统一为 minimal 命名（消费端 mysql_inplace_upgrade.sh 按 mysql-*-minimal.tar.* 匹配）。
+      # x86_64 的 8.4/9.7 直接用上游官方 minimal；其余（8.0 双架构、8.4/9.7 的 arm64）
+      # 上游只有 full 包，下载后用 transforms/make_mysql_minimal.sh 自制：
+      # 删 bin/mysqld-debug、清空 lib/plugin/debug/*.so（保留空目录），并 --strip-unneeded。
+      # 注意 8.0.46 故意选 glibc2.28 而非 2.17：与其余版本同档，el7 不在覆盖范围内。
+      catalog: "mysql"
+      page_url: "https://dev.mysql.com/downloads/mysql/{major_minor}.html?os=2"
+      cdn_url: "https://cdn.mysql.com//Downloads/MySQL-{major_minor}/{source}"
+      files:
+        - version: "8.0.46"
+          arch: "amd64"
+          source: "mysql-8.0.46-linux-glibc2.28-x86_64.tar.xz"
+          filename: "mysql-8.0.46-linux-glibc2.28-x86_64-minimal.tar.xz"
+          transform: "mysql-minimal"
+          strip: true
+        - version: "8.0.46"
+          arch: "arm64"
+          source: "mysql-8.0.46-linux-glibc2.28-aarch64.tar.xz"
+          filename: "mysql-8.0.46-linux-glibc2.28-aarch64-minimal.tar.xz"
+          transform: "mysql-minimal"
+          strip: true
+        - version: "8.4.13"
+          arch: "amd64"
+          # 上游官方 minimal，原样搬运，只做页面 MD5 校验
+          source: "mysql-8.4.13-linux-glibc2.28-x86_64-minimal.tar.xz"
+        - version: "8.4.13"
+          arch: "arm64"
+          source: "mysql-8.4.13-linux-glibc2.28-aarch64.tar.xz"
+          filename: "mysql-8.4.13-linux-glibc2.28-aarch64-minimal.tar.xz"
+          transform: "mysql-minimal"
+          strip: true
+        - version: "9.7.4"
+          arch: "amd64"
+          source: "mysql-9.7.4-linux-glibc2.28-x86_64-minimal.tar.xz"
+        - version: "9.7.4"
+          arch: "arm64"
+          source: "mysql-9.7.4-linux-glibc2.28-aarch64.tar.xz"
+          filename: "mysql-9.7.4-linux-glibc2.28-aarch64-minimal.tar.xz"
+          transform: "mysql-minimal"
+          strip: true
+
 # 静态植入组件。档位未列出的键回落到 default。
 vendor:
   openssl:

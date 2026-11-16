@@ -23,6 +23,17 @@ SILO（`pgsty/silo`）与 mcli（`pgsty/mc`）、RustFS 服务端与 CLI（`rust
 - **Nacos 只有 md5，扩展而不是绕过校验**：Nacos 是 Java 产物（`single: true`），上游只给 BSD 格式的 `.md5`（`MD5 (file) = <hash>`）。resolver 新增 `checksums.algorithm: md5`，驱动的 `verify_official` 用 `md5sum` 校验，awk 同时兼容 coreutils（`hash  name`）与 BSD 两种行格式；官方 md5 强校验照过，我们自己的 `.sha256` 侧车仍照常生成上传。
 - **本地离线验证沿用 `--local`**：校验文件名不再硬编码 `SHA256SUMS`，改为取配置里校验文件 URL 的 basename，因此 `nacos-server-3.3.0.tar.gz.md5`、`sha256sums.txt` 等命名都能离线复现校验。
 
+## MySQL：catalog 解析与 minimal 自制（首个转换型组件）
+
+MySQL Community Server 不经 GitHub 分发，且需求与其他组件不同：目标环境统一消费 `-minimal` 包（ansible-deploy 的 `mysql_inplace_upgrade.sh` 按 `mysql-*-minimal.tar.*` 匹配），而上游只给 x86_64 的 8.4/9.7 提供官方 minimal，arm64 与 8.0 全是 full 包。因此 mysql 是本通道第一个「下载后还要转换」的组件。
+
+- **目录页即 catalog**。`dev.mysql.com/downloads/mysql/<major_minor>.html?os=2`（os=2 = Linux Generic）的 HTML 表格内嵌每个资产的 MD5（`<code class="md5">`），没有独立校验文件。resolver 新增 `catalog: mysql`，抓页面正则解析「资产名 → MD5」，按大版本线缓存，每个页面只请求一次；下载走 `cdn.mysql.com//Downloads/MySQL-<mm>/<asset>` 稳定直链。注意站点前置 Akamai，自定义 UA 与浏览器 UA 都返回 403，只有 curl 风格 UA 放行，resolver 对该站点固定用 `curl/8.5.0`。
+- **显式 `files` 清单取代 assets 模板**。一个组件横跨三个版本、两种包型、两种处理方式，模板表达不了。每条 `files` 元素显式写 `version / arch / source / filename / transform / strip`：`source` 是实际下载并接受官方 MD5 校验的上游资产，`filename` 是落 OSS 的产物名；无 `transform` 时二者同名、原样搬运。resolver TSV 增加 `source / transform / strip / expected_hash` 四列，普通组件填默认值（source=filename、transform 空、expected 空）。
+- **minimal 规则与上游官方包逐项对齐**。转换脚本 `scripts/transforms/make_mysql_minimal.sh` vendor 自 ansible-deploy 同名脚本：解到隔离 mktemp 目录（不执行包内任何程序），删 `bin/mysqld-debug`、清空 `lib/plugin/debug/*.so` 并保留空目录条目，再按原压缩格式（xz 多线程）重打包，产物名在后缀前插入 `-minimal`。打包后做内容自检（debug 文件不得残留、空目录条目必须存在）。
+- **arm64 与 8.0 额外做 ELF strip**。所有自制 minimal 都带 `--strip`：对包内 ELF 跑 `strip --strip-unneeded`，机器类型用 readelf 跨架构识别，AArch64 走 `aarch64-linux-gnu-strip`（CI 由 `_middleware.yml` 安装 `binutils-aarch64-linux-gnu`，本地可用 `~/.local/bin` 下的用户态工具或 `STRIP_BIN` 覆盖）。官方 minimal（8.4/9.7 x86_64）不重新打包，字节不变，MD5 直接对得上。
+- **版本与档位选择**。镜像 8.0.46 / 8.4.13 LTS / 9.7.4 LTS 三个版本，全部选 glibc2.28 包——8.0.46 刻意不选 glibc2.17，避免同组件混档；el7 不在 MySQL 覆盖范围内。共 6 个产物（3 版本 × 2 架构），其中 2 个官方直拷、4 个自制。
+- **校验边界**。官方 MD5 只校验下载源（full 或官方 minimal）；自制产物没有也不可能有上游哈希，沿用自算 sha256 侧车 + OSS 重跑比对的既有约定，Step Summary 的备注列标明「官方 MD5 校验源包后自制 minimal」。
+
 ## 触发
 
 - 与 monitoring 通道一致：单组件 workflow（`silo.yml` 等六个）只跑该组件，可勾选 `force`；`middleware.yml` 跑全量（`scripts/middleware.sh --all`）。
@@ -40,6 +51,7 @@ SILO（`pgsty/silo`）与 mcli（`pgsty/mc`）、RustFS 服务端与 CLI（`rust
 - `scripts/mirror_resolve.py`（配置段 → 文件清单，查询上游资产；由 `monitoring_resolve.py` 泛化而来）
 - `scripts/mirror.sh`（下载、校验、上传；由 `monitoring.sh` 泛化而来）
 - `scripts/middleware.sh`、`scripts/monitoring.sh`（两个段的 shim 入口）
-- `scripts/{silo,mcli,rustfs,rustfs-cli,rabbitmq-server,nacos-server}.sh`
-- `.github/workflows/_middleware.yml`、`.github/workflows/middleware.yml` 与六个单组件入口
+- `scripts/{silo,mcli,rustfs,rustfs-cli,rabbitmq-server,nacos-server,mysql}.sh`
+- `scripts/transforms/make_mysql_minimal.sh`（MySQL full -> minimal 转换，含可选跨架构 strip）
+- `.github/workflows/_middleware.yml`、`.github/workflows/middleware.yml` 与七个单组件入口
 - ADR 0004（被本 ADR 泛化的前身，规则默认继承）

@@ -47,6 +47,13 @@ jobs:
           "$RUNNER_TEMP/venv/bin/pip" install --quiet "pyyaml>=6,<7"
           echo "PYTHON=$RUNNER_TEMP/venv/bin/python" >> "$GITHUB_ENV"
 
+      - name: 安装 minimal 自制依赖
+        # mysql arm64 full 包自制 minimal 时要跨架构 strip；xz 用于 tar.xz 解包重打包
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-aarch64-linux-gnu xz-utils
+
       - name: 安装 ossutil
         run: |
           set -euo pipefail

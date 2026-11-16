@@ -214,10 +214,26 @@ verify_official() {
     || die "${name} 官方 ${algo} 校验失败"
 }
 
+# 直接按 resolver 给出的官方哈希校验（MySQL 目录页 MD5，无独立校验文件）
+verify_expected() {
+  local archive="$1" expected="$2" name="$3" algo="${4:-sha256}" sumtool
+  case "$algo" in
+    sha256) sumtool=sha256sum ;;
+    md5)
+      command -v md5sum >/dev/null 2>&1 || die "缺少 md5sum，无法校验 ${name}"
+      sumtool=md5sum
+      ;;
+    *) die "不支持的校验算法: ${algo}（${name}）" ;;
+  esac
+  printf '%s  %s\n' "$expected" "$archive" | "$sumtool" -c - >/dev/null \
+    || die "${name} 官方 ${algo} 校验失败"
+}
+
 # ---------- 单文件 ----------
 publish_one() {
-  local asset_name="$1" url="$2" checksums_url="$3" algorithm="$4"
-  # 产物就是上游原件：名字、压缩类型都不动
+  local asset_name="$1" url="$2" checksums_url="$3" algorithm="$4" \
+        source_name="$5" transform="$6" do_strip="$7" expected_hash="$8"
+  # asset_name 是落 OSS 的产物名；转换组件的下载源名在 source_name
   local dest="$output_dir/$asset_name"
 
   rm -f "$dest" "$dest.sha256"
@@ -229,31 +245,35 @@ publish_one() {
     return 0
   fi
 
-  local src_asset="$work_dir/downloads/$asset_name"
+  local src_asset="$work_dir/downloads/$source_name"
   mkdir -p "$(dirname "$src_asset")"
 
   if [ -n "$local_dir" ]; then
-    [ -f "$local_dir/$asset_name" ] || die "--local 目录里没有 $asset_name"
-    cp -f "$local_dir/$asset_name" "$src_asset"
+    [ -f "$local_dir/$source_name" ] || die "--local 目录里没有 $source_name"
+    cp -f "$local_dir/$source_name" "$src_asset"
   elif [ ! -s "$src_asset" ]; then
     download "$url" "$src_asset"
   else
     log "复用已下载文件: ${src_asset##*/}"
   fi
 
-  local checksums
-  if [ -n "$local_dir" ]; then
+  # 校验对象永远是下载源（转换前的上游原件），不是转换产物
+  local checksums note
+  if [ "$expected_hash" != "-" ]; then
+    verify_expected "$src_asset" "$expected_hash" "$source_name" "$algorithm"
+    log "官方 ${algorithm} 校验通过: $source_name"
+  elif [ -n "$local_dir" ]; then
     # 离线模式：把上游同名的官方校验文件一起放进目录才校验
-    if checksums=$(fetch_checksums "file://$local_dir/$(basename "$checksums_url")"); then
-      verify_official "$src_asset" "$checksums" "$asset_name" "$algorithm"
-      log "官方 ${algorithm} 校验通过: $asset_name"
+    if [ "$checksums_url" != "-" ] && checksums=$(fetch_checksums "file://$local_dir/$(basename "$checksums_url")"); then
+      verify_official "$src_asset" "$checksums" "$source_name" "$algorithm"
+      log "官方 ${algorithm} 校验通过: $source_name"
     else
-      log "警告: 本地目录无 $(basename "$checksums_url")，跳过校验"
+      log "警告: 本地模式无官方哈希来源，跳过校验: $source_name"
     fi
   elif [ "$checksums_url" != "-" ]; then
     if checksums=$(fetch_checksums "$checksums_url"); then
-      verify_official "$src_asset" "$checksums" "$asset_name" "$algorithm"
-      log "官方 ${algorithm} 校验通过: $asset_name"
+      verify_official "$src_asset" "$checksums" "$source_name" "$algorithm"
+      log "官方 ${algorithm} 校验通过: $source_name"
     elif [ "$skip_checksums" = "true" ]; then
       log "警告: 拿不到校验文件，跳过校验（--skip-checksums）"
     else
@@ -262,10 +282,36 @@ publish_one() {
   else
     # grafana 的 sha256 只存在于包清单 API（与下载地址同源），不单独下发校验文件；
     # rabbitmq 的 GitHub release 只有 GPG .asc，没有哈希文件
-    log "警告: ${asset_name} 没有独立校验文件，跳过校验"
+    log "警告: ${source_name} 没有独立校验文件，跳过校验"
   fi
 
-  cp -f "$src_asset" "$dest"
+  if [ "$transform" != "-" ]; then
+    local made
+    case "$transform" in
+      mysql-minimal)
+        local targs=(-f)
+        [ "$do_strip" = "true" ] && targs+=(--strip)
+        # 显式接住退出码：本函数可能运行在 if 条件里，set -e 不会传播失败
+        bash "$SCRIPT_DIR/transforms/make_mysql_minimal.sh" "${targs[@]}" "$src_asset" \
+          || die "minimal 转换失败: $source_name"
+        case "$source_name" in
+          *.tar.xz) made="${src_asset%.tar.xz}-minimal.tar.xz" ;;
+          *.tar.gz) made="${src_asset%.tar.gz}-minimal.tar.gz" ;;
+          *) die "不支持的转换源后缀: $source_name" ;;
+        esac
+        ;;
+      *) die "未知转换: ${transform}" ;;
+    esac
+    [ -f "$made" ] || die "转换未产出预期文件: $made"
+    [ "$(basename "$made")" = "$asset_name" ] \
+      || die "转换产物名 $(basename "$made") 与配置 filename ${asset_name} 不一致"
+    cp -f "$made" "$dest"
+    note="官方 ${algorithm} 校验源包后自制 minimal"
+  else
+    cp -f "$src_asset" "$dest"
+    note="官方校验后原样上传"
+  fi
+
   local sha
   sha=$(sha256sum "$dest" | cut -d' ' -f1)
   printf '%s  %s\n' "$sha" "$asset_name" > "$dest.sha256"
@@ -286,16 +332,17 @@ publish_one() {
   "$OSSUTIL" cp -f "$dest" "$key" "${oss_auth[@]}" >/dev/null || die "上传失败: $key"
   "$OSSUTIL" cp -f "$dest.sha256" "$key.sha256" "${oss_auth[@]}" >/dev/null || die "上传失败: $key.sha256"
   log "已上传: $key (sha256 ${sha})"
-  printf 'ok|%s|%s|%s|官方校验后原样上传\n' "$asset_name" "$key" "$sha"
+  printf 'ok|%s|%s|%s|%s\n' "$asset_name" "$key" "$sha" "$note"
 }
 
 # ---------- 主循环 ----------
 failures=0
 results=()
-while IFS=$'\t' read -r comp ver arch url filename checksums algorithm; do
+while IFS=$'\t' read -r comp ver arch url filename checksums algorithm source transform strip expected_hash; do
   case "$arch" in -) arch="" ;; esac
   log "---- ${comp} ${ver} ${arch:-无架构} ----"
-  if out=$(publish_one "$filename" "$url" "$checksums" "$algorithm"); then
+  if out=$(publish_one "$filename" "$url" "$checksums" "$algorithm" \
+                          "$source" "$transform" "$strip" "$expected_hash"); then
     results+=("$out")
   else
     failures=$((failures + 1))

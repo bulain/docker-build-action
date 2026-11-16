@@ -2,22 +2,27 @@
 """把 config.yaml 的镜像段（monitoring / middleware）解析成待镜像文件清单。
 
 输出 TSV（--tsv）或 JSON（默认）：
-  component  version  arch  url  filename  checksums  algorithm
+  component  version  arch  url  filename  checksums  algorithm  source  transform  strip  expected_hash
 
 - section 由 --section 选择，默认 monitoring；两个段结构相同，区别只在语义
   （监控组件 vs 中间件/基础服务），见 docs/adr/0004、0005。
 - arch 为 - 表示该组件不分架构（single）。
 - url：上游资产地址。dry-run 与 --local 不查上游，此时分别留空 / 填本地目录。
-- filename：上游资产名，同时是落到 OSS 的名字。上游原件原样搬运，
-  不解压、不剥离、不改名，压缩类型也保持上游的。
+- filename：落到 OSS 的名字。普通组件等于上游资产名（原样搬运）；带 transform
+  的组件（mysql minimal 自制）是转换后的产物名，源资产名在 source 列。
 - checksums: 官方校验文件 URL，可为空（输出为 -）。
-- algorithm: 校验哈希算法，sha256（默认）或 md5（nacos 只有 BSD 格式 md5）。
+- algorithm: 校验哈希算法，sha256（默认）或 md5（nacos / mysql 目录页只有 md5）。
+- source: 实际下载的上游资产名；无转换时与 filename 相同。
+- transform: 下载后执行的转换名（mysql-minimal），无则 -。
+- strip: 转换时是否对 ELF 做 --strip-unneeded，true / false。
+- expected_hash: catalog 类组件在页面里直接给出的官方哈希（无独立校验文件），无则 -。
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -26,6 +31,12 @@ import yaml
 
 GITHUB_API = "https://api.github.com"
 GRAFANA_API = "https://grafana.com/api"
+MYSQL_DOWNLOAD_BASE = "https://dev.mysql.com/downloads/mysql"
+# 下载页表格里 (文件名) ... <code class="md5">32 位十六进制</code>
+MYSQL_MD5_RE = re.compile(
+    r"\((mysql-[^)]+\.tar\.(?:xz|gz))\).*?<code class=\"md5\">([0-9a-fA-F]{32})</code>",
+    re.S,
+)
 
 
 def default_name(name: str, key: str, version: str) -> str:
@@ -61,6 +72,32 @@ def release_assets(repo: str, tag: str) -> dict[str, str]:
 def grafana_packages(version: str) -> list[dict]:
     data = http_json(f"{GRAFANA_API}/grafana/versions/{version}")
     return data.get("packages") or []
+
+
+def http_text(url: str, user_agent: str = "docker-build-action") -> str:
+    headers = {"User-Agent": user_agent}
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        return resp.read().decode("utf-8", errors="replace")
+
+
+def major_minor(version: str) -> str:
+    parts = version.split(".")
+    if len(parts) < 2:
+        raise ValueError(f"版本号需要形如 8.4.13，实际为 {version}")
+    return f"{parts[0]}.{parts[1]}"
+
+
+def mysql_md5_table(version: str, page_url_tpl: str) -> dict[str, str]:
+    """抓 MySQL 下载页（os=2 = Linux Generic），解析文件名 -> 官方 MD5。
+
+    MySQL 不提供独立校验文件，MD5 内嵌在 HTML 表格；同一大版本线共用一个页面。
+    """
+    mm = major_minor(version)
+    url = page_url_tpl.format(major_minor=mm, version=version)
+    # dev.mysql.com 前面是 Akamai，自定义/浏览器 UA 均 403，curl 风格 UA 放行
+    html = http_text(url, user_agent="curl/8.5.0")
+    return dict(MYSQL_MD5_RE.findall(html))
 
 
 def build_entry(
@@ -119,6 +156,58 @@ def build_entry(
         "filename": asset,
         "checksums": checksums,
         "algorithm": algorithm,
+        # 普通组件：下载名即产物名，无转换
+        "source": asset,
+        "transform": "",
+        "strip": False,
+        "expected_hash": "",
+    }
+
+
+def build_explicit_entry(
+    name: str,
+    item: dict,
+    comp: dict,
+    md5_table: dict[str, str] | None,
+    local: str = "",
+    dry: bool = False,
+) -> dict:
+    """files 显式清单条目（目前仅 MySQL：源 full/minimal 包 -> 自制 minimal 产物）。"""
+    version = str(item["version"])
+    source = str(item["source"])
+    filename = str(item.get("filename") or source)
+    transform = str(item.get("transform") or "")
+    strip = bool(item.get("strip"))
+    expected = ""
+    url = ""
+
+    if local:
+        url = f"{local}/{source}"
+    elif not dry:
+        if comp.get("catalog") != "mysql":
+            raise SystemExit(f"{name}: files 显式清单目前只支持 catalog: mysql")
+        table = md5_table or {}
+        if source not in table:
+            raise SystemExit(f"{name} {version}: MySQL 下载页找不到 {source} 的 MD5 行")
+        expected = table[source]
+        mm = major_minor(version)
+        url = str(comp["cdn_url"]).format(
+            major_minor=mm, version=version, source=source
+        )
+
+    return {
+        "component": name,
+        "version": version,
+        "arch": str(item.get("arch") or ""),
+        "url": url,
+        "filename": filename,
+        # MySQL 的官方哈希来自页面解析（expected_hash），没有独立校验文件 URL
+        "checksums": "",
+        "algorithm": "md5",
+        "source": source,
+        "transform": transform,
+        "strip": strip,
+        "expected_hash": expected,
     }
 
 
@@ -163,6 +252,29 @@ def main() -> int:
     cache: dict[tuple, dict] = {}
     for name in names:
         comp = components[name]
+
+        # 显式 files 清单（MySQL）：每条自带版本/架构/源资产/转换规则，
+        # 不走 assets 模板与 GitHub/grafana 资产查询
+        if comp.get("files"):
+            if args.dry_run:
+                for item in comp["files"]:
+                    files.append(build_explicit_entry(name, item, comp, None, dry=True))
+                continue
+            if args.local:
+                for item in comp["files"]:
+                    files.append(build_explicit_entry(name, item, comp, None, local=args.local))
+                continue
+            page_tpl = str(comp.get("page_url") or "")
+            for item in comp["files"]:
+                mm = major_minor(str(item["version"]))
+                cache_key = ("mysql-page", mm)
+                if cache_key not in cache:
+                    cache[cache_key] = mysql_md5_table(str(item["version"]), page_tpl)
+                files.append(
+                    build_explicit_entry(name, item, comp, cache[cache_key])
+                )
+            continue
+
         if comp.get("single"):
             targets = ["default"]
         else:
@@ -196,7 +308,12 @@ def main() -> int:
     if args.dry_run:
         for f in files:
             print(f"{f['component']}\t{f['version']}\t{f['arch'] or '-'}\t{f['filename']}")
-            print(f"  source: {f['url'] or f['component']}")
+            if f["source"] != f["filename"]:
+                extra = f["transform"] or "?"
+                strip_note = " +strip" if f["strip"] else ""
+                print(f"  source: {f['source']} -> transform {extra}{strip_note}")
+            else:
+                print(f"  source: {f['url'] or f['component']}")
         print(f"共 {len(files)} 个文件", file=sys.stderr)
         return 0
 
@@ -213,6 +330,10 @@ def main() -> int:
                         f["filename"],
                         f["checksums"] or "-",
                         f["algorithm"],
+                        f["source"],
+                        f["transform"] or "-",
+                        "true" if f["strip"] else "false",
+                        f["expected_hash"] or "-",
                     ]
                 )
             )
