@@ -1,0 +1,28 @@
+name: sync percona-xtrabackup
+
+# 仅 workflow_dispatch 手动触发；只镜像 Percona XtraBackup 的上游 tarball，见 docs/adr/0003。
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "覆盖版本（完整串，如 9.7.2-3；留空使用 config.yaml）"
+        required: false
+        default: ""
+      force:
+        description: "覆盖 OSS 上已存在的文件"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    uses: ./.github/workflows/_upstream-percona.yml
+    with:
+      component: "percona-xtrabackup"
+      version: ${{ inputs.version || '' }}
+      force: ${{ inputs.force || false }}
+    secrets: inherit

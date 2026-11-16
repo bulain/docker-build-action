@@ -44,7 +44,7 @@ Percona 官网下载慢，`scripts/upstream-percona.sh` 把 Percona Server / Xtr
 - 配置：`config.yaml` 的 `upstream` 段；每个组件写**完整版本串**（含构建号，`9.7.2-2` 这种，无法从大版本推断）。
 - 当前镜像：percona-server 8.4.10-10 / 9.7.2-3，percona-xtrabackup 8.4.0-7 / 9.7.2-2，percona-toolkit 3.7.0；
   x86_64 minimal，glibc 2.28 / 2.34，xtrabackup 另有 2.39。
-- 触发：仅手动 `workflow_dispatch`，可指定 `component` / `version` / `force`。
+- 触发：仅手动 `workflow_dispatch`；单组件入口（percona-server / percona-xtrabackup / percona-toolkit）可指定 `version` / `force`，全量入口 `upstream-percona.yml` 只支持 `force`。
 - OSS 路径：`oss://{bucket}/linux/{原始文件名}` + 同名 `.sha256`。
 - 校验：Percona 不提供校验文件，`.sha256` 由脚本首次下载后自算（非官方值），重跑时与远端比对、不一致则告警。
 - 本地跑：`OSS_BUCKET=... OSS_ENDPOINT=... scripts/upstream-percona.sh --dry-run`（预演），
@@ -97,7 +97,9 @@ scripts/gen_matrix.py          config.yaml -> Actions matrix
 .github/workflows/postgresql.yml PostgreSQL 手动入口
 .github/workflows/haproxy.yml  HAProxy 手动入口
 .github/workflows/orchestrator.yml Orchestrator 手动入口
-.github/workflows/upstream-percona.yml Percona 原件镜像同步入口
+.github/workflows/_upstream-percona.yml Percona 原件镜像可复用工作流
+.github/workflows/percona-{server,xtrabackup,toolkit}.yml Percona 单组件镜像入口
+.github/workflows/upstream-percona.yml Percona 全量镜像入口
 .github/workflows/_monitoring.yml      监控组件镜像可复用工作流
 .github/workflows/<component>.yml      监控组件镜像入口（10 个）
 .github/workflows/monitoring.yml       监控组件全量镜像入口

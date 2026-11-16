@@ -23,7 +23,9 @@ Percona 官网（`downloads.percona.com`）带宽差，目标机直接下载 Per
 
 ## 触发
 
-- 仅支持手动 `workflow_dispatch`：按配置全量同步，OSS 已存在的文件跳过，可指定 `component` / `version` / `force`。
+- 全部仅手动 `workflow_dispatch`，OSS 已存在的文件跳过。
+- 拆成三个单组件入口 `percona-server.yml` / `percona-xtrabackup.yml` / `percona-toolkit.yml`，固定 `--component`，可带 `version` 覆盖与 `force`；公共逻辑在可复用工作流 `_upstream-percona.yml`。
+- `upstream-percona.yml` 为全量入口，不带组件筛选，只支持 `force`。
 
 不做定时任务：没有「探测最新版本」的输入，定时跑只会空转。
 
@@ -32,4 +34,4 @@ Percona 官网（`downloads.percona.com`）带宽差，目标机直接下载 Per
 - `config.yaml` 的 `upstream` 段
 - `scripts/upstream_resolve.py`（配置 → 文件清单）
 - `scripts/upstream-percona.sh`（下载、校验、上传）
-- `.github/workflows/upstream-percona.yml`
+- `.github/workflows/_upstream-percona.yml`（可复用工作流）与各入口 workflow

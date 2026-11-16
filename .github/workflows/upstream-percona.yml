@@ -1,21 +1,11 @@
-name: sync percona upstream
+name: sync percona upstream (all)
 
-# 把 Percona 官网的二进制 tarball 镜像到 OSS。不编译，见 docs/adr/0003。
-# 仅 workflow_dispatch 手动触发；manifest 版本变了就手动重跑。
+# 一键手动镜像全部 Percona 组件；单组件入口见 percona-server / percona-xtrabackup /
+# percona-toolkit 三个 workflow。设计见 docs/adr/0003。
 
 on:
   workflow_dispatch:
     inputs:
-      component:
-        description: "只同步某个组件（留空全部）"
-        required: false
-        default: ""
-        type: choice
-        options: ["", "percona-server", "percona-xtrabackup", "percona-toolkit"]
-      version:
-        description: "组件版本（完整串，如 9.7.2-2；需同时指定 component）"
-        required: false
-        default: ""
       force:
         description: "覆盖 OSS 上已存在的文件"
         required: false
@@ -27,52 +17,7 @@ permissions:
 
 jobs:
   sync:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: 准备 PyYAML
-        run: |
-          python3 -m venv "$RUNNER_TEMP/venv"
-          "$RUNNER_TEMP/venv/bin/pip" install --quiet "pyyaml>=6,<7"
-          echo "PYTHON=$RUNNER_TEMP/venv/bin/python" >> "$GITHUB_ENV"
-
-      - name: 安装 ossutil
-        run: |
-          set -euo pipefail
-          version=2.4.0
-          mkdir -p "$RUNNER_TEMP/ossutil"
-          curl -fsSL -o "$RUNNER_TEMP/ossutil.zip" \
-            "https://gosspublic.alicdn.com/ossutil/v2/${version}/ossutil-${version}-linux-amd64.zip"
-          unzip -q -o "$RUNNER_TEMP/ossutil.zip" -d "$RUNNER_TEMP/ossutil"
-          ossutil=$(find "$RUNNER_TEMP/ossutil" -type f -name ossutil | head -n1)
-          chmod +x "$ossutil"
-          echo "OSSUTIL=$ossutil" >> "$GITHUB_ENV"
-
-      - name: 预演清单
-        env:
-          COMPONENT: ${{ inputs.component }}
-          VERSION: ${{ inputs.version }}
-        run: |
-          set -euo pipefail
-          args=(--dry-run)
-          if [ -n "$COMPONENT" ]; then args+=(--component "$COMPONENT"); fi
-          if [ -n "$VERSION" ]; then args+=(--version "$VERSION"); fi
-          scripts/upstream-percona.sh "${args[@]}"
-
-      - name: 下载并上传
-        env:
-          OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
-          OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
-          OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
-          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
-          OSS_REGION: ${{ secrets.OSS_REGION }}
-          FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force || false }}
-          COMPONENT: ${{ inputs.component }}
-          VERSION: ${{ inputs.version }}
-        run: |
-          set -euo pipefail
-          args=()
-          if [ -n "$COMPONENT" ]; then args+=(--component "$COMPONENT"); fi
-          if [ -n "$VERSION" ]; then args+=(--version "$VERSION"); fi
-          scripts/upstream-percona.sh "${args[@]}"
+    uses: ./.github/workflows/_upstream-percona.yml
+    with:
+      force: ${{ inputs.force || false }}
+    secrets: inherit

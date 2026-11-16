@@ -1,6 +1,6 @@
 # 构建配置 —— 单一事实来源。
 #
-# 修改本文件或对应 scripts/<pkg>.sh 会触发该软件的 workflow。
+# workflow 全部为手动 workflow_dispatch，改本文件或 scripts/<pkg>.sh 后需到 Actions 页手动触发。
 # 版本覆盖规则：先取更具体的键，再回落到 default；例如 valkey 在 el7 上用 versions.el7。
 #
 # 注意：oss.endpoint 必须是公网 endpoint。GitHub 托管的 runner 在境外，
