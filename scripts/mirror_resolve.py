@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""把 config.yaml 的 monitoring 段解析成待镜像文件清单。
+"""把 config.yaml 的镜像段（monitoring / middleware）解析成待镜像文件清单。
 
 输出 TSV（--tsv）或 JSON（默认）：
-  component  version  arch  url  filename  checksums
+  component  version  arch  url  filename  checksums  algorithm
 
+- section 由 --section 选择，默认 monitoring；两个段结构相同，区别只在语义
+  （监控组件 vs 中间件/基础服务），见 docs/adr/0004、0005。
 - arch 为 - 表示该组件不分架构（single）。
 - url：上游资产地址。dry-run 与 --local 不查上游，此时分别留空 / 填本地目录。
 - filename：上游资产名，同时是落到 OSS 的名字。上游原件原样搬运，
   不解压、不剥离、不改名，压缩类型也保持上游的。
 - checksums: 官方校验文件 URL，可为空（输出为 -）。
+- algorithm: 校验哈希算法，sha256（默认）或 md5（nacos 只有 BSD 格式 md5）。
 """
 from __future__ import annotations
 
@@ -70,6 +73,7 @@ def build_entry(
     dry: bool = False,
 ) -> dict:
     version = str(comp["version"])
+    tag = str(comp.get("tag") or version)
     single = bool(comp.get("single"))
     key = "default" if single else arch
     raw_assets = comp.get("assets") or {}
@@ -77,7 +81,7 @@ def build_entry(
     # 产物保持上游原名与原压缩类型：不解压、不剥离、不改名
     asset = (
         raw_assets.get(key) or default_name(name, key, version)
-    ).format(version=version)
+    ).format(version=version, tag=tag)
     local_name = asset
     url = ""
 
@@ -101,9 +105,11 @@ def build_entry(
             raise SystemExit(f"{name} {version} {arch}: 上游资产里找不到 {asset}")
 
     checksums = ""
+    algorithm = "sha256"
     ck = comp.get("checksums") or {}
     if ck.get("url"):
-        checksums = ck["url"].format(version=version)
+        checksums = ck["url"].format(version=version, tag=tag)
+        algorithm = str(ck.get("algorithm") or "sha256")
 
     return {
         "component": name,
@@ -112,12 +118,18 @@ def build_entry(
         "url": url,
         "filename": asset,
         "checksums": checksums,
+        "algorithm": algorithm,
     }
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="config.yaml")
+    parser.add_argument(
+        "--section",
+        default="monitoring",
+        help="config.yaml 的镜像段名：monitoring（默认）或 middleware",
+    )
     parser.add_argument(
         "--component", action="append", default=[], help="只解析某个组件，可重复；留空则全部"
     )
@@ -131,19 +143,20 @@ def main() -> int:
     with open(args.config, encoding="utf-8") as fh:
         cfg = yaml.safe_load(fh)
 
-    mon = cfg.get("monitoring") or {}
-    components = mon.get("components") or {}
+    section = cfg.get(args.section) or {}
+    components = section.get("components") or {}
     if not components:
         print(json.dumps({"files": [], "count": 0}))
         return 0
     unknown = [c for c in args.component if c not in components]
     if unknown:
         print(
-            f"未知组件: {', '.join(unknown)}（可选: {', '.join(components)}）", file=sys.stderr
+            f"未知组件: {', '.join(unknown)}（{args.section} 段可选: {', '.join(components)}）",
+            file=sys.stderr,
         )
         return 2
 
-    arches = [str(a) for a in mon.get("architectures") or ["amd64", "arm64"]]
+    arches = [str(a) for a in section.get("architectures") or ["amd64", "arm64"]]
     names = args.component or list(components)
 
     files = []
@@ -171,7 +184,8 @@ def main() -> int:
             if key[0] == "grafana":
                 cache[key] = {"packages": grafana_packages(str(comp["version"]))}
             else:
-                # tag 可能与版本号不同名（prometheus 系 tag 带 v，资产名不带）
+                # tag 可能与版本号不同名（prometheus 系 tag 带 v，资产名不带；
+                # pgsty 的 tag 是 RELEASE.<ISO>，资产名用紧凑包版本）
                 tag = str(comp.get("tag") or comp["version"])
                 cache[key] = {"assets": release_assets(comp["repo"], tag)}
         entry = cache[key]
@@ -198,6 +212,7 @@ def main() -> int:
                         f["url"],
                         f["filename"],
                         f["checksums"] or "-",
+                        f["algorithm"],
                     ]
                 )
             )

@@ -1,7 +1,8 @@
 # docker-build-action
 
 从官方源码编译 nginx / OpenResty / valkey / redis / Erlang / PostgreSQL / HAProxy / Orchestrator，产出 el7–el10 × amd64/arm64 的 tar.gz；
-同时把 Percona 与监控类（Alertmanager、Grafana、Alloy、VictoriaMetrics / VictoriaLogs 等）的上游发布件镜像到同一个 OSS。
+同时把 Percona、监控类（Alertmanager、Grafana、Alloy、VictoriaMetrics / VictoriaLogs 等）与中间件类
+（SILO / mcli、RustFS / RustFS CLI、RabbitMQ、Nacos）的上游发布件镜像到同一个 OSS。
 
 ## 工作方式
 
@@ -66,6 +67,25 @@ Alertmanager、alertmanager-webhook-adapter、Alloy、Grafana、VictoriaMetrics 
 
 决策与取舍见 `docs/adr/0004-monitoring-upstream-mirror.md`。
 
+## 中间件镜像
+
+SILO / mcli（pgsty 的 MinIO 发行线）、RustFS 服务端 / RustFS CLI、RabbitMQ、Nacos 同样只从 GitHub Releases 分发。
+这些组件走第四个通道（继 packages / upstream / monitoring 之后），机制与监控组件完全相同
+（同一套驱动，按 config.yaml 的段区分）：下载上游发布件 →
+按官方校验文件验证 → 原样上传 OSS（保持上游文件名与压缩类型，不解压、不剥离、不改名）。
+
+- 配置：`config.yaml` 的 `middleware` 段，每个组件在 `components` 下一条；入口脚本为 `scripts/<name>.sh`。
+- 当前镜像：silo / mcli `20261112000000.0.0`，rustfs `1.0.6`（gnu zip），rustfs-cli `0.1.37`（gnu tar.gz），
+  rabbitmq-server `4.4.0`（generic-unix，单包），nacos-server `3.3.0`（单包）。
+- 校验：silo / mcli / rustfs / rustfs-cli 按上游 sha256 校验文件强校验；nacos 上游只发 BSD 格式 md5，
+  驱动按 `algorithm: md5` 走 md5sum 强校验；rabbitmq 的 GitHub release 只有 GPG 签名、无哈希文件，告警后自算 sha256。
+- 触发：全部仅手动 `workflow_dispatch`；单组件 workflow 只跑该组件，`middleware.yml` 全量重跑，均可勾选 `force`。
+- OSS 路径：`oss://{bucket}/{prefix}/{filename}` + 同名 `.sha256`；默认前缀 `linux`，与其他通道同层。
+- 本地验证：`scripts/<name>.sh --local <dir>` 从目录读取上游资产与同名官方校验文件，
+  结果写到 `out/middleware/packages/`，不联网、不上传。
+
+决策与取舍见 `docs/adr/0005-middleware-upstream-mirror.md`。
+
 ## 目录
 
 ```
@@ -81,12 +101,16 @@ scripts/haproxy.sh             HAProxy 构建（同样静态植入四库）
 scripts/orchestrator.sh        Orchestrator 构建（Go + cgo/vendored sqlite）
 scripts/upstream-percona.sh    Percona 原件镜像同步（下载 -> 校验 -> OSS）
 scripts/upstream_resolve.py    upstream 段 -> 待镜像文件清单
-scripts/monitoring.sh          监控组件镜像共用逻辑（下载 -> 校验 -> 上传）
-scripts/monitoring_resolve.py  monitoring 段 -> 待镜像清单（含上游资产查询）
+scripts/mirror.sh              上游发布件镜像通用驱动（下载 -> 校验 -> 上传，--section 选段）
+scripts/mirror_resolve.py      monitoring/middleware 段 -> 待镜像清单（含上游资产查询）
+scripts/monitoring.sh          监控段 shim 入口（-> mirror.sh --section monitoring）
+scripts/middleware.sh          中间件段 shim 入口（-> mirror.sh --section middleware）
 scripts/alertmanager.sh        监控组件入口（另有 alertmanager-webhook-adapter / alloy /
                                grafana / victoria-logs / victoria-metrics / vmutils /
                                vlutils / victoriametrics-logs-datasource /
                                victoriametrics-metrics-datasource）
+scripts/silo.sh                中间件组件入口（另有 mcli / rustfs / rustfs-cli /
+                               rabbitmq-server / nacos-server）
 scripts/gen_matrix.py          config.yaml -> Actions matrix
 .github/workflows/_build.yml   可复用工作流（矩阵 -> 容器编译 -> OSS）
 .github/workflows/nginx.yml    nginx 手动入口
@@ -103,6 +127,10 @@ scripts/gen_matrix.py          config.yaml -> Actions matrix
 .github/workflows/_monitoring.yml      监控组件镜像可复用工作流
 .github/workflows/<component>.yml      监控组件镜像入口（10 个）
 .github/workflows/monitoring.yml       监控组件全量镜像入口
+.github/workflows/_middleware.yml      中间件镜像可复用工作流
+.github/workflows/<component>.yml      中间件镜像入口（silo / mcli / rustfs /
+                                       rustfs-cli / rabbitmq-server / nacos-server）
+.github/workflows/middleware.yml       中间件全量镜像入口
 GLOSSARY.md                    术语
 docs/adr/                      关键决策记录
 ```

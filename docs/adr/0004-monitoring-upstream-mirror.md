@@ -35,10 +35,15 @@ Alertmanager、Grafana、Alloy、VictoriaMetrics / VictoriaLogs（含工具集�
 
 `scripts/<name>.sh --local <dir>` 不联网：从目录读取上游资产，做官方校验（此处没有校验文件则跳过），原样写到 `out/monitoring/packages/`。写出的文件应当与输入逐字节相同，可用于在上传前确认资产名是否仍然匹配。
 
+> 更新（ADR 0005）：本通道的驱动与解析器已泛化为 `scripts/mirror.sh` 与 `scripts/mirror_resolve.py`，
+> 用 `--section monitoring` 选段；`scripts/monitoring.sh` 保留为 shim，行为与本 ADR 描述一致。
+
 ## 相关
 
 - `config.yaml` 的 `monitoring` 段
-- `scripts/monitoring_resolve.py`（配置 → 文件清单，查询上游资产）
-- `scripts/monitoring.sh`（下载、校验、上传）
+- `scripts/mirror_resolve.py`（配置 → 文件清单，查询上游资产；泛化前名 `monitoring_resolve.py`）
+- `scripts/mirror.sh`（下载、校验、上传；泛化前名 `monitoring.sh`）
+- `scripts/monitoring.sh`（monitoring 段 shim 入口）
 - `scripts/<name>.sh`（十个组件入口）
 - `.github/workflows/_monitoring.yml`、`.github/workflows/monitoring.yml`
+- ADR 0005（同一套机制泛化到中间件组件）

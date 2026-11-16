@@ -167,6 +167,90 @@ monitoring:
       assets:
         default: "victoriametrics-logs-datasource-{version}.zip"
 
+# 中间件/基础服务的上游发布件镜像。结构与 monitoring 完全相同（同一套驱动，
+# 用 --section middleware 区分），区别只在语义：这里放对象存储、消息队列、
+# 注册配置中心等服务端原件。不编译、不分档位，产物保持上游原名原样搬运。
+# 设计见 docs/adr/0005-middleware-upstream-mirror.md。
+#
+# 与 monitoring 一样：每个组件 versions 只能有一个元素，文件名自带版本号，
+# 「已存在即跳过」靠共用前缀目录 + 文件名判定。
+middleware:
+  prefix: "linux"      # 与 packages / upstream / monitoring 共用一层，靠文件名区分
+  architectures: [amd64, arm64]
+
+  components:
+    silo:
+      # SILO：Pigsty 维护的 MinIO 发行线（pgsty/silo）。release tag 是 RELEASE.<ISO>，
+      # 资产名用紧凑包版本 20261112000000.0.0，两个版本串必须分别声明
+      repo: "pgsty/silo"
+      version: "20261112000000.0.0"
+      tag: "RELEASE.2026-11-12T00-00-00Z"
+      assets:
+        amd64: "silo_{version}_linux_amd64.tar.gz"
+        arm64: "silo_{version}_linux_arm64.tar.gz"
+      checksums:
+        url: "https://github.com/pgsty/silo/releases/download/{tag}/silo_{version}_checksums.txt"
+
+    mcli:
+      # SILO 配套 S3 客户端（pgsty/mc），版本节奏与 silo 对齐；装到目标机后二进制名 mcli
+      repo: "pgsty/mc"
+      version: "20261112000000.0.0"
+      tag: "RELEASE.2026-11-12T00-00-00Z"
+      assets:
+        amd64: "mcli_{version}_linux_amd64.tar.gz"
+        arm64: "mcli_{version}_linux_arm64.tar.gz"
+      checksums:
+        url: "https://github.com/pgsty/mc/releases/download/{tag}/mcli_{version}_checksums.txt"
+
+    rustfs:
+      # RustFS 服务端。tag 与版本同名且不带 v；上游资产按 x86_64/aarch64 命名，
+      # 与本段其他组件的 amd64/arm64 不同，靠显式 assets 模板消化。
+      # 选 gnu（glibc）变体，与目标 EL 系统一致；上游同时发 musl 变体，不镜像。
+      # 资产是 zip：与 alloy 一样保持原压缩类型，不解压不转格式。
+      repo: "rustfs/rustfs"
+      version: "1.0.6"
+      assets:
+        amd64: "rustfs-linux-x86_64-gnu-v{version}.zip"
+        arm64: "rustfs-linux-aarch64-gnu-v{version}.zip"
+      checksums:
+        url: "https://github.com/rustfs/rustfs/releases/download/{version}/SHA256SUMS"
+
+    rustfs-cli:
+      # RustFS 官方 CLI（仓库名是 cli，产品名 rustfs-cli）。tag 带 v 而资产名也带 v，
+      # version 保持无 v，tag 单独声明。同样选 gnu 变体；无 gnu 后缀的是 musl 包。
+      repo: "rustfs/cli"
+      version: "0.1.37"
+      tag: "v0.1.37"
+      assets:
+        amd64: "rustfs-cli-linux-amd64-gnu-v{version}.tar.gz"
+        arm64: "rustfs-cli-linux-arm64-gnu-v{version}.tar.gz"
+      checksums:
+        url: "https://github.com/rustfs/cli/releases/download/{tag}/SHA256SUMS"
+
+    rabbitmq-server:
+      # BEAM 虚拟机字节码，generic-unix 包不分架构，single。运行依赖目标机 Erlang
+      # （本仓库 packages.erlang 自编译提供）。GitHub release 只有 GPG .asc 签名，
+      # 没有哈希校验文件：走「告警 + 自算 sha256」路径，与 grafana 同等待遇。
+      repo: "rabbitmq/rabbitmq-server"
+      version: "4.4.0"
+      tag: "v4.4.0"
+      single: true
+      assets:
+        default: "rabbitmq-server-generic-unix-{version}.tar.xz"
+
+    nacos-server:
+      # Java 产物，不分架构，single。上游只发 BSD 格式的 .md5
+      # （MD5 (file) = <hash>），没有 sha256；驱动按 algorithm: md5 走 md5sum 强校验，
+      # 我们自己的 .sha256 侧车仍照常生成上传。
+      repo: "alibaba/nacos"
+      version: "3.3.0"
+      single: true
+      assets:
+        default: "nacos-server-{version}.tar.gz"
+      checksums:
+        url: "https://github.com/alibaba/nacos/releases/download/{version}/nacos-server-{version}.tar.gz.md5"
+        algorithm: "md5"
+
 # 静态植入组件。档位未列出的键回落到 default。
 vendor:
   openssl:
