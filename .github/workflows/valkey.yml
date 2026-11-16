@@ -1,14 +1,6 @@
 name: build valkey
 
 on:
-  push:
-    branches: [master, main]
-    paths:
-      - "config.yaml"
-      - "scripts/valkey.sh"
-      - "scripts/common.sh"
-      - ".github/workflows/valkey.yml"
-      - ".github/workflows/_build.yml"
   workflow_dispatch:
     inputs:
       version:

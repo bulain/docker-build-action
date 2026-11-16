@@ -1,14 +1,6 @@
 name: build haproxy
 
 on:
-  push:
-    branches: [master, main]
-    paths:
-      - "config.yaml"
-      - "scripts/haproxy.sh"
-      - "scripts/common.sh"
-      - ".github/workflows/haproxy.yml"
-      - ".github/workflows/_build.yml"
   workflow_dispatch:
     inputs:
       version:

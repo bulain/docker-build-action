@@ -1,14 +1,6 @@
 name: build redis
 
 on:
-  push:
-    branches: [master, main]
-    paths:
-      - "config.yaml"
-      - "scripts/redis.sh"
-      - "scripts/common.sh"
-      - ".github/workflows/redis.yml"
-      - ".github/workflows/_build.yml"
   workflow_dispatch:
     inputs:
       version:

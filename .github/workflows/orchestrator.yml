@@ -1,14 +1,6 @@
 name: build orchestrator
 
 on:
-  push:
-    branches: [master, main]
-    paths:
-      - "config.yaml"
-      - "scripts/orchestrator.sh"
-      - "scripts/common.sh"
-      - ".github/workflows/orchestrator.yml"
-      - ".github/workflows/_build.yml"
   workflow_dispatch:
     inputs:
       version:

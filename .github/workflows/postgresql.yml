@@ -1,14 +1,6 @@
 name: build postgresql
 
 on:
-  push:
-    branches: [master, main]
-    paths:
-      - "config.yaml"
-      - "scripts/postgresql.sh"
-      - "scripts/common.sh"
-      - ".github/workflows/postgresql.yml"
-      - ".github/workflows/_build.yml"
   workflow_dispatch:
     inputs:
       version:

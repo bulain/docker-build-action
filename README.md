@@ -5,7 +5,7 @@
 
 ## 工作方式
 
-1. push 修改 `config.yaml` 或对应 `scripts/<pkg>.sh` → 触发该软件的 workflow。
+1. 在 Actions 页手动触发对应软件的 workflow（仅 `workflow_dispatch`，不再随 push 自动跑）。
 2. 矩阵 job 用 `scripts/gen_matrix.py` 读配置，生成「档位 × 架构」组合。
 3. 每个组合在目标发行版容器里编译（amd64 跑 `ubuntu-24.04`，arm64 跑 `ubuntu-24.04-arm`）。
 4. 产物回收到宿主机，由宿主机上的 ossutil 上传。
@@ -44,7 +44,7 @@ Percona 官网下载慢，`scripts/upstream-percona.sh` 把 Percona Server / Xtr
 - 配置：`config.yaml` 的 `upstream` 段；每个组件写**完整版本串**（含构建号，`9.7.2-2` 这种，无法从大版本推断）。
 - 当前镜像：percona-server 8.4.10-10 / 9.7.2-3，percona-xtrabackup 8.4.0-7 / 9.7.2-2，percona-toolkit 3.7.0；
   x86_64 minimal，glibc 2.28 / 2.34，xtrabackup 另有 2.39。
-- 触发：改 `config.yaml` 自动跑；也可手动指定 `component` / `version` / `force`。
+- 触发：仅手动 `workflow_dispatch`，可指定 `component` / `version` / `force`。
 - OSS 路径：`oss://{bucket}/linux/{原始文件名}` + 同名 `.sha256`。
 - 校验：Percona 不提供校验文件，`.sha256` 由脚本首次下载后自算（非官方值），重跑时与远端比对、不一致则告警。
 - 本地跑：`OSS_BUCKET=... OSS_ENDPOINT=... scripts/upstream-percona.sh --dry-run`（预演），
@@ -59,7 +59,7 @@ Alertmanager、alertmanager-webhook-adapter、Alloy、Grafana、VictoriaMetrics 
 （保持上游文件名与压缩类型，不解压、不剥离、不改名）。
 
 - 配置：`config.yaml` 的 `monitoring` 段，每个组件在 `components` 下一条；入口脚本为 `scripts/<name>.sh`。
-- 触发：改 `config.yaml` 或对应脚本/workflow 时该组件自动跑；`monitoring.yml` 手动触发可全量重跑，也可在单组件 workflow 里勾选 `force`。
+- 触发：全部仅手动 `workflow_dispatch`；单组件 workflow 只跑该组件，`monitoring.yml` 全量重跑，均可勾选 `force`。
 - OSS 路径：`oss://{bucket}/{prefix}/{filename}` + 同名 `.sha256`；默认前缀 `linux`，与自编译产物、Percona 原件同层。
 - 校验：下载原件后按上游 `SHA256SUMS`（或 grafana.com API 给出的 sha256）校验，不通过即失败。
 - 本地验证：`scripts/<name>.sh --local <dir>` 从目录读取上游资产，结果写到 `out/monitoring/packages/`，不联网、不上传。
@@ -89,14 +89,14 @@ scripts/alertmanager.sh        监控组件入口（另有 alertmanager-webhook-
                                victoriametrics-metrics-datasource）
 scripts/gen_matrix.py          config.yaml -> Actions matrix
 .github/workflows/_build.yml   可复用工作流（矩阵 -> 容器编译 -> OSS）
-.github/workflows/nginx.yml    nginx 触发入口
-.github/workflows/openresty.yml OpenResty 触发入口
-.github/workflows/valkey.yml   valkey 触发入口
-.github/workflows/redis.yml    redis 触发入口
-.github/workflows/erlang.yml   erlang 触发入口
-.github/workflows/postgresql.yml PostgreSQL 触发入口
-.github/workflows/haproxy.yml  HAProxy 触发入口
-.github/workflows/orchestrator.yml Orchestrator 触发入口
+.github/workflows/nginx.yml    nginx 手动入口
+.github/workflows/openresty.yml OpenResty 手动入口
+.github/workflows/valkey.yml   valkey 手动入口
+.github/workflows/redis.yml    redis 手动入口
+.github/workflows/erlang.yml   erlang 手动入口
+.github/workflows/postgresql.yml PostgreSQL 手动入口
+.github/workflows/haproxy.yml  HAProxy 手动入口
+.github/workflows/orchestrator.yml Orchestrator 手动入口
 .github/workflows/upstream-percona.yml Percona 原件镜像同步入口
 .github/workflows/_monitoring.yml      监控组件镜像可复用工作流
 .github/workflows/<component>.yml      监控组件镜像入口（10 个）

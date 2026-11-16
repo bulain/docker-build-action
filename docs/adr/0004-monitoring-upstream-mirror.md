@@ -26,9 +26,8 @@ Alertmanager、Grafana、Alloy、VictoriaMetrics / VictoriaLogs（含工具集�
 
 ## 触发
 
-- push 到 `config.yaml`、`scripts/monitoring.sh`、`scripts/monitoring_resolve.py`、`scripts/<name>.sh` 或对应 workflow → 对应组件的 workflow 触发，其余组件保持不动。
-- `monitoring.yml` 手动触发 → 全量（`scripts/monitoring.sh --all`）。
-- 各组件 workflow 手动触发 → 只跑该组件，可勾选 `force`。
+- 全部入口仅支持手动 `workflow_dispatch`，不再随 push 自动跑。
+- 单组件 workflow 只跑该组件，可勾选 `force`；`monitoring.yml` 跑全量（`scripts/monitoring.sh --all`）。
 
 与 ADR 0003 一样不做定时任务：没有「探测最新版本」的输入，定时跑只会空转。
 

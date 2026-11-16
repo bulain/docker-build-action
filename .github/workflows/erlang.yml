@@ -1,14 +1,6 @@
 name: build erlang
 
 on:
-  push:
-    branches: [master, main]
-    paths:
-      - "config.yaml"
-      - "scripts/erlang.sh"
-      - "scripts/common.sh"
-      - ".github/workflows/erlang.yml"
-      - ".github/workflows/_build.yml"
   workflow_dispatch:
     inputs:
       version:

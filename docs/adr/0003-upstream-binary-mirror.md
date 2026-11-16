@@ -23,8 +23,7 @@ Percona 官网（`downloads.percona.com`）带宽差，目标机直接下载 Per
 
 ## 触发
 
-- push 到 `config.yaml` / `scripts/upstream-percona.*` → 按配置全量同步，OSS 已存在的文件跳过。
-- 手动触发可指定 `component` / `version` / `force`。
+- 仅支持手动 `workflow_dispatch`：按配置全量同步，OSS 已存在的文件跳过，可指定 `component` / `version` / `force`。
 
 不做定时任务：没有「探测最新版本」的输入，定时跑只会空转。
 

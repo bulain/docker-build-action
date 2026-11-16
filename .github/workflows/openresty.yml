@@ -1,14 +1,6 @@
 name: build openresty
 
 on:
-  push:
-    branches: [master, main]
-    paths:
-      - "config.yaml"
-      - "scripts/openresty.sh"
-      - "scripts/common.sh"
-      - ".github/workflows/openresty.yml"
-      - ".github/workflows/_build.yml"
   workflow_dispatch:
     inputs:
       version:

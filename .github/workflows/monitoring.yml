@@ -1,7 +1,6 @@
 name: mirror monitoring (all)
 
-# 一键镜像全部监控组件。日常改 config.yaml 时各组件入口各自触发，
-# 这里只做手动兜底与首次初始化。
+# 一键手动镜像全部监控组件；各单组件入口同样仅支持手动触发。
 
 on:
   workflow_dispatch:

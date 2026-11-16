@@ -1,16 +1,9 @@
 name: sync percona upstream
 
 # 把 Percona 官网的二进制 tarball 镜像到 OSS。不编译，见 docs/adr/0003。
-# 只在改到 upstream 相关配置时触发；manifest 版本变了才需要重跑。
+# 仅 workflow_dispatch 手动触发；manifest 版本变了就手动重跑。
 
 on:
-  push:
-    branches: [master, main]
-    paths:
-      - "config.yaml"
-      - "scripts/upstream-percona.sh"
-      - "scripts/upstream_resolve.py"
-      - ".github/workflows/upstream-percona.yml"
   workflow_dispatch:
     inputs:
       component:

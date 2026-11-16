@@ -1,14 +1,6 @@
 name: build nginx
 
 on:
-  push:
-    branches: [master, main]
-    paths:
-      - "config.yaml"
-      - "scripts/nginx.sh"
-      - "scripts/common.sh"
-      - ".github/workflows/nginx.yml"
-      - ".github/workflows/_build.yml"
   workflow_dispatch:
     inputs:
       version:
