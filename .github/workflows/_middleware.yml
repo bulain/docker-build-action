@@ -48,7 +48,8 @@ jobs:
           echo "PYTHON=$RUNNER_TEMP/venv/bin/python" >> "$GITHUB_ENV"
 
       - name: 安装 minimal 自制依赖
-        # mysql arm64 full 包自制 minimal 时要跨架构 strip；xz 用于 tar.xz 解包重打包
+        # 仅 MySQL 需要自制 minimal；其他组件原样镜像，无需 strip / xz 工具
+        if: inputs.components == '' || contains(inputs.components, 'mysql')
         run: |
           set -euo pipefail
           sudo apt-get update -qq
