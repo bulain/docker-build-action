@@ -329,8 +329,8 @@ publish_one() {
     log "警告: ${asset_name} 哈希与 OSS 记录不一致（远端 ${prev} / 本次 ${sha}）"
   fi
 
-  "$OSSUTIL" cp -f "$dest" "$key" "${oss_auth[@]}" >/dev/null || die "上传失败: $key"
-  "$OSSUTIL" cp -f "$dest.sha256" "$key.sha256" "${oss_auth[@]}" >/dev/null || die "上传失败: $key.sha256"
+  "$OSSUTIL" cp -f "$dest" "$key" "${oss_auth[@]}" || die "上传失败: $key"
+  "$OSSUTIL" cp -f "$dest.sha256" "$key.sha256" "${oss_auth[@]}" || die "上传失败: $key.sha256"
   log "已上传: $key (sha256 ${sha})"
   printf 'ok|%s|%s|%s|%s\n' "$asset_name" "$key" "$sha" "$note"
 }
