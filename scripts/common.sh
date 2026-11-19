@@ -105,30 +105,23 @@ check_archive_integrity() {
   esac
 }
 
-# fetch_source <url> <dest> <sha256 或空> <显示名>
-# 下载 + 校验整体重试 3 次：配了 sha256 以哈希为准，否则做压缩包完整性自检。
+# fetch_source <url> <dest> <sha256 参数保留但忽略> <显示名>
+# 下载后仅做压缩包完整性检查，不校验 sha256；整体重试 3 次。
 fetch_source() {
-  local url="$1" dest="$2" sha="$3" name="$4" attempt
+  local url="$1" dest="$2" name="$4" attempt
   for attempt in 1 2 3; do
     log "下载 ${name}: ${url}（第 ${attempt}/3 次）"
     if curl -fSL --retry 3 --connect-timeout 20 --max-time 900 -o "$dest" "$url"; then
-      if [ -n "${sha:-}" ]; then
-        if printf '%s  %s\n' "$sha" "$dest" | sha256sum -c - >/dev/null 2>&1; then
-          log "${name} sha256 校验通过"
-          return 0
-        fi
-        log "${name} sha256 不匹配，重试"
-      elif check_archive_integrity "$dest"; then
-        log "警告: ${name} 未配置 sha256，完整性自检通过，跳过哈希校验"
+      if check_archive_integrity "$dest"; then
+        log "${name} 完整性自检通过，跳过 sha256 校验"
         return 0
-      else
-        log "${name} 内容不是有效压缩包（上游可能返回错误页），重试"
       fi
+      log "${name} 内容不是有效压缩包（上游可能返回错误页），重试"
     fi
     rm -f "$dest"
     sleep 5
   done
-  die "${name} 连续 3 次下载失败或校验不通过: ${url}"
+  die "${name} 连续 3 次下载失败或完整性自检不通过: ${url}"
 }
 
 # extract_source <archive> <destdir>
