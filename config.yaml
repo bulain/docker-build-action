@@ -232,8 +232,8 @@ middleware:
       # （本仓库 packages.erlang 自编译提供）。GitHub release 只有 GPG .asc 签名，
       # 没有哈希校验文件：走「告警 + 自算 sha256」路径，与 grafana 同等待遇。
       repo: "rabbitmq/rabbitmq-server"
-      version: "4.4.0"
-      tag: "v4.4.0"
+      version: "4.4.1"
+      tag: "v4.4.1"
       single: true
       assets:
         default: "rabbitmq-server-generic-unix-{version}.tar.xz"
