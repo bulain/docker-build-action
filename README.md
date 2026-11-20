@@ -1,8 +1,8 @@
 # docker-build-action
 
 从官方源码编译 nginx / OpenResty / valkey / redis / Erlang / PostgreSQL / HAProxy / Orchestrator，产出 el7–el10 × amd64/arm64 的 tar.gz；
-同时把 Percona、监控类（Alertmanager、Grafana、Alloy、VictoriaMetrics / VictoriaLogs 等）与中间件类
-（SILO / mcli、RustFS / RustFS CLI、RabbitMQ、Nacos）的上游发布件镜像到同一个 OSS。
+同时把 Percona、监控类（Alertmanager、Grafana、Alloy、VictoriaMetrics / VictoriaLogs 等）、中间件类
+（SILO / mcli、RustFS / RustFS CLI、RabbitMQ、Nacos）与 JDK 类（Adoptium Temurin 8 / 17 / 21 / 25）的上游发布件镜像到同一个 OSS。
 
 ## 工作方式
 
@@ -91,6 +91,27 @@ GitHub 系组件保持上游文件名与压缩类型原样搬运；MySQL 是例�
 
 决策与取舍见 `docs/adr/0005-middleware-upstream-mirror.md`。
 
+## JDK 镜像
+
+Adoptium Temurin 的 JDK tarball 从官方站点 <https://adoptium.net/temurin/releases> 分发；脚本走其
+`api.adoptium.net` 元数据接口，不依赖 GitHub release 资产名。Temurin 8 / 17 / 21 / 25 走第五个通道，
+与监控、中间件共用同一套驱动：按官方元数据下载 → 用 API 给出的 sha256 校验 → 原样上传 OSS。
+
+- 配置：`config.yaml` 的 `jdk` 段，每组件 `catalog: adoptium` + 完整版本（如 `21.0.13+9`）；
+  8 的 release 标识不通用，额外写 `release_name: jdk8u504-b01`。
+- 当前镜像：temurin8 `8.0.504+1`（`8u504b01`）、temurin17 `17.0.21+9`、temurin21 `21.0.13+9`、
+  temurin25 `25.0.5+8`，各 x64 / aarch64。
+  Adoptium 的补丁版可能只发 x64，配置取两架构共有的版本，避免同一机群混用不同构建。
+- 文件名由 API 决定（`OpenJDK<major>U-jdk_<x64|aarch64>_linux_hotspot_<ver>.tar.gz`）；
+  checksum 取自 API 的 `package.checksum`，OSS 侧仍附同名 `.sha256`。
+- 触发：单组件入口 `temurin8.yml` / `temurin17.yml` / `temurin21.yml` / `temurin25.yml`，
+  全量入口 `temurin.yml`，均可勾选 `force`。
+- OSS 路径：`oss://{bucket}/{prefix}/{filename}` + 同名 `.sha256`；默认前缀 `linux`。
+- 本地验证：`scripts/temurin21.sh --local /home/bulain/ansible-deploy/files/linux`，
+  不联网，结果写到 `out/jdk/packages/`。
+
+决策与取舍见 `docs/adr/0006-jdk-upstream-mirror.md`。
+
 ## 目录
 
 ```
@@ -107,9 +128,11 @@ scripts/orchestrator.sh        Orchestrator 构建（Go + cgo/vendored sqlite）
 scripts/upstream-percona.sh    Percona 原件镜像同步（下载 -> 校验 -> OSS）
 scripts/upstream_resolve.py    upstream 段 -> 待镜像文件清单
 scripts/mirror.sh              上游发布件镜像通用驱动（下载 -> 校验 -> 上传，--section 选段）
-scripts/mirror_resolve.py      monitoring/middleware 段 -> 待镜像清单（含上游资产查询）
+scripts/mirror_resolve.py      monitoring/middleware/jdk 段 -> 待镜像清单（含上游资产查询）
 scripts/monitoring.sh          监控段 shim 入口（-> mirror.sh --section monitoring）
 scripts/middleware.sh          中间件段 shim 入口（-> mirror.sh --section middleware）
+scripts/jdk.sh                 JDK 段 shim 入口（-> mirror.sh --section jdk）
+scripts/temurin21.sh           Temurin 21 组件入口（另 temurin8.sh / temurin17.sh / temurin25.sh）
 scripts/alertmanager.sh        监控组件入口（另有 alertmanager-webhook-adapter / alloy /
                                grafana / victoria-logs / victoria-metrics / vmutils /
                                vlutils / victoriametrics-logs-datasource /
@@ -137,6 +160,8 @@ scripts/gen_matrix.py          config.yaml -> Actions matrix
 .github/workflows/<component>.yml      中间件镜像入口（silo / mcli / rustfs /
                                        rustfs-cli / rabbitmq-server / nacos-server / mysql）
 .github/workflows/middleware.yml       中间件全量镜像入口
+.github/workflows/_jdk.yml             JDK 镜像可复用工作流
+.github/workflows/temurin.yml          JDK 全量镜像入口（temurin8/17/21/25.yml 为单组件入口）
 GLOSSARY.md                    术语
 docs/adr/                      关键决策记录
 ```

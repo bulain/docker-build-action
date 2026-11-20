@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# 把上游发布件镜像到 OSS 的通用驱动。由 scripts/monitoring.sh / scripts/middleware.sh
-# （经 --section）或 scripts/<component>.sh 调用，不直接执行。
+# 把上游发布件镜像到 OSS 的通用驱动。由 scripts/monitoring.sh / scripts/middleware.sh /
+# scripts/jdk.sh（经 --section）或 scripts/<component>.sh 调用，不直接执行。
 #
 # 与 upstream-percona.sh 的区别：产物分架构、用上游官方校验文件。与
 # scripts/<pkg>.sh（packages）的区别：不编译、不分档位。产物就是上游原件：
@@ -9,7 +9,7 @@
 # docs/adr/0005-middleware-upstream-mirror.md。
 #
 # 用法（通常经由 scripts/<section>.sh 或 scripts/<component>.sh 调用）：
-#   scripts/mirror.sh --section <monitoring|middleware> <component> [--option ...] [镜像参数]
+#   scripts/mirror.sh --section <monitoring|middleware|jdk> <component> [--option ...] [镜像参数]
 #   镜像参数：
 #     --all                  镜像该段全部组件（忽略 component 位置参数与 --component）
 #     --component <name>     只镜像某个组件，可多次
@@ -68,8 +68,8 @@ command -v "$python_bin" >/dev/null 2>&1 || die "缺少 python3（解析 config.
 
 # 段名白名单：它会被拼进 python 取值与输出目录路径，不接受任意值
 case "$section" in
-  monitoring|middleware) ;;
-  *) die "不支持的镜像段: ${section}（可选 monitoring / middleware）" ;;
+  monitoring|middleware|jdk) ;;
+  *) die "不支持的镜像段: ${section}（可选 monitoring / middleware / jdk）" ;;
 esac
 
 script_name=$(basename "${BASH_SOURCE[0]}")

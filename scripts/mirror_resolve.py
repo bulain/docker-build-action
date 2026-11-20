@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""把 config.yaml 的镜像段（monitoring / middleware）解析成待镜像文件清单。
+"""把 config.yaml 的镜像段（monitoring / middleware / jdk）解析成待镜像文件清单。
 
 输出 TSV（--tsv）或 JSON（默认）：
   component  version  arch  url  filename  checksums  algorithm  source  transform  strip  expected_hash
 
-- section 由 --section 选择，默认 monitoring；两个段结构相同，区别只在语义
-  （监控组件 vs 中间件/基础服务），见 docs/adr/0004、0005。
+- section 由 --section 选择，默认 monitoring；各段结构相同，区别只在语义
+  （监控组件 / 中间件 / JDK 运行时），见 docs/adr/0004、0005、0006。
+- catalog: adoptium 的组件（JDK）按官方 API 解析：资产名、直链与 sha256 都来自
+  api.adoptium.net。17+ 的 release 是 jdk-<semver>（如 jdk-21.0.13+9），8 是
+  jdk8u504-b01，无法互相推导，故支持显式 release_name。离线与 dry-run 按命名规则推导文件名。
 - arch 为 - 表示该组件不分架构（single）。
 - url：上游资产地址。dry-run 与 --local 不查上游，此时分别留空 / 填本地目录。
 - filename：落到 OSS 的名字。普通组件等于上游资产名（原样搬运）；带 transform
@@ -26,10 +29,14 @@ import re
 import sys
 import urllib.error
 import urllib.request
+from urllib.parse import quote, urlencode
 
 import yaml
 
 GITHUB_API = "https://api.github.com"
+ADOPTIUM_API = "https://api.adoptium.net"
+# 本仓库统一用 amd64 / arm64；Adoptium 的 API 与文件名用 x64 / aarch64
+ADOPTIUM_ARCH = {"amd64": "x64", "arm64": "aarch64"}
 GRAFANA_API = "https://grafana.com/api"
 MYSQL_DOWNLOAD_BASE = "https://dev.mysql.com/downloads/mysql"
 # 下载页表格里 (文件名) ... <code class="md5">32 位十六进制</code>
@@ -44,6 +51,65 @@ def default_name(name: str, key: str, version: str) -> str:
     if key == "default":
         return f"{name}-{version}.tar.gz"
     return f"{name}-{key}-{version}.tar.gz"
+
+
+def adoptium_release_name(comp: dict) -> str:
+    """release 标识：8 的是 jdk8u504-b01，17+ 的是 jdk-21.0.13+9，无法互相推导。"""
+    return str(comp.get("release_name") or f"jdk-{comp['version']}")
+
+
+def adoptium_asset_name(release_name: str, version: str, arch: str) -> str:
+    """按 Adoptium 命名规则推导文件名（离线与 dry-run 用）。
+
+    在线解析以 API 返回的 package.name 为准；这里只保证预演清单显示的名字
+    与实际上传一致。8 与 17+ 的写法不同：
+      jdk8u504-b01   -> 8u504b01
+      jdk-21.0.13+9  -> 21.0.13_9
+    去掉 jdk 前缀后，+ 换 _、- 删掉即可。
+    """
+    major = version.split(".")[0]
+    token = release_name[3:] if release_name.startswith("jdk") else release_name
+    token = token.lstrip("-").replace("+", "_").replace("-", "")
+    return (
+        f"OpenJDK{major}U-jdk_{ADOPTIUM_ARCH[arch]}_linux_hotspot_{token}.tar.gz"
+    )
+
+
+def adoptium_package(release_name: str, arch: str) -> dict[str, str]:
+    """查 Adoptium API，返回某 release 某架构 Linux JDK 包的名字 / 直链 / 官方 sha256。
+
+    用 release_name 端点而不是 assets/latest：latest 在两个架构上可能不是同一个
+    构建（补丁或构建只发某一个架构时），配置钉死版本才不会让同一机群混版。
+    """
+    api_arch = ADOPTIUM_ARCH.get(arch)
+    if not api_arch:
+        raise SystemExit(f"adoptium: 不支持的架构 {arch}")
+    release = quote(release_name, safe="")
+    query = urlencode(
+        {
+            "architecture": api_arch,
+            "image_type": "jdk",
+            "os": "linux",
+            "vendor": "eclipse",
+        }
+    )
+    data = http_json(f"{ADOPTIUM_API}/v3/assets/release_name/eclipse/{release}?{query}")
+    bins = data.get("binaries") if isinstance(data, dict) else None
+    for binfo in bins or []:
+        pkg = binfo.get("package") or {}
+        if (
+            binfo.get("os") == "linux"
+            and binfo.get("image_type") == "jdk"
+            and binfo.get("architecture") == api_arch
+            and pkg.get("name")
+            and pkg.get("link")
+        ):
+            return {
+                "name": str(pkg["name"]),
+                "link": str(pkg["link"]),
+                "checksum": str(pkg.get("checksum") or ""),
+            }
+    raise SystemExit(f"adoptium: {release_name} {arch} 找不到 Linux JDK 包")
 
 
 def http_json(url: str) -> dict:
@@ -114,16 +180,27 @@ def build_entry(
     single = bool(comp.get("single"))
     key = "default" if single else arch
     raw_assets = comp.get("assets") or {}
+    expected_hash = ""
 
     # 产物保持上游原名与原压缩类型：不解压、不剥离、不改名
-    asset = (
-        raw_assets.get(key) or default_name(name, key, version)
-    ).format(version=version, tag=tag)
+    if comp.get("catalog") == "adoptium":
+        # 离线先按命名规则推导；在线解析会替换成 API 返回的权威名字
+        release = adoptium_release_name(comp)
+        asset = adoptium_asset_name(release, version, arch)
+    else:
+        asset = (
+            raw_assets.get(key) or default_name(name, key, version)
+        ).format(version=version, tag=tag)
     local_name = asset
     url = ""
 
     if local:
         url = f"{local}/{asset}"
+    elif not dry and comp.get("catalog") == "adoptium":
+        pkg = adoptium_package(release, arch)
+        asset = pkg["name"]
+        url = pkg["link"]
+        expected_hash = pkg["checksum"]
     elif not dry and comp.get("catalog") == "grafana":
         # 包清单里的 os 字段对 tar.gz 记为 linux，与 rpm/deb 区分靠文件名。
         # 新版清单文件名带构建号且改用下划线（grafana_13.3.1_<build>_linux_amd64.tar.gz），
@@ -160,7 +237,7 @@ def build_entry(
         "source": asset,
         "transform": "",
         "strip": False,
-        "expected_hash": "",
+        "expected_hash": expected_hash,
     }
 
 
@@ -279,6 +356,15 @@ def main() -> int:
             targets = ["default"]
         else:
             targets = arches
+
+        # Adoptium（JDK）：资产元数据来自官方 API，不走 GitHub/grafana 资产表；
+        # dry-run 与 --local 时 build_entry 内部按命名规则推导文件名，不联网
+        if comp.get("catalog") == "adoptium":
+            for arch in targets:
+                files.append(
+                    build_entry(name, comp, arch, None, [], local=args.local, dry=args.dry_run)
+                )
+            continue
 
         if args.dry_run:
             # dry-run 不查上游：url 留空，filename 按配置回放

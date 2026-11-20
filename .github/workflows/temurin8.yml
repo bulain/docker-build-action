@@ -1,0 +1,24 @@
+name: mirror temurin8
+
+# 镜像 Adoptium Temurin 8 JDK tarball（官方 API）。不编译，见 docs/adr/0006。
+# 仅 workflow_dispatch 手动触发；本入口只筛出自己那部分组件清单。
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "覆盖 OSS 上已存在的产物"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    uses: ./.github/workflows/_jdk.yml
+    with:
+      components: "temurin8"
+      force: ${{ inputs.force || false }}
+    secrets: inherit

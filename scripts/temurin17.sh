@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# 镜像 Adoptium Temurin 17（官方 API：adoptium.net/temurin/releases）JDK tarball 到 OSS。
+# 由 .github/workflows/temurin17.yml 或 --all 调用；参数见 scripts/jdk.sh。
+set -euo pipefail
+
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+exec bash "$SCRIPT_DIR/jdk.sh" temurin17 "$@"

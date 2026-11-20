@@ -295,6 +295,42 @@ middleware:
           transform: "mysql-minimal"
           strip: true
 
+# JDK 上游发布件镜像（第五个通道）。Adoptium Temurin 通过官方站点
+# https://adoptium.net/temurin/releases 分发，资产元数据由 api.adoptium.net 给出。
+# 机制与 monitoring / middleware 相同：按官方元数据下载、校验后原样上传，
+# 不编译、不解压、不改名。设计见 docs/adr/0006-jdk-upstream-mirror.md。
+#
+# 与 middleware 段的差异：
+#   - 来源是 Adoptium API（catalog: adoptium），不查 GitHub release 资产名；
+#   - 文件名由 API 决定（OpenJDK<major>U-jdk_<x64|aarch64>_linux_hotspot_<ver>.tar.gz）；
+#   - 校验用 API 返回的 package.checksum（官方 sha256），不再单独抓 .sha256.txt。
+#
+# version 写 Adoptium 的 semver；release 标识默认由 "jdk-" + version 拼出，8 例外
+# （jdk8u504-b01），用 release_name 显式给。版本必须在 x64 与 aarch64 都存在：
+# Adoptium 的补丁/构建号可能只发某一个架构（例如 8u514b01 与 8u512b09、
+# 17.0.21.1+2 只有 x64），因此这里取两架构共有的版本，避免同一机群混用不同构建。
+jdk:
+  prefix: "linux"      # 与 packages / upstream / monitoring / middleware 共用一层
+  architectures: [amd64, arm64]
+
+  components:
+    temurin8:
+      catalog: "adoptium"
+      version: "8.0.504+1"
+      release_name: "jdk8u504-b01"
+
+    temurin17:
+      catalog: "adoptium"
+      version: "17.0.21+9"
+
+    temurin21:
+      catalog: "adoptium"
+      version: "21.0.13+9"
+
+    temurin25:
+      catalog: "adoptium"
+      version: "25.0.5+8"
+
 # 静态植入组件。档位未列出的键回落到 default。
 vendor:
   openssl:
