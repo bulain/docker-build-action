@@ -146,8 +146,9 @@ sync_one() {
 
   printf '%s  %s\n' "$sha" "$filename" > "$dest.sha256"
 
-  "$OSSUTIL" cp -f "$dest" "$key" "${oss_auth[@]}" >/dev/null || return 1
-  "$OSSUTIL" cp -f "$dest.sha256" "$key.sha256" "${oss_auth[@]}" >/dev/null || return 1
+  # 不重定向输出：ossutil 进度条走 stdout，大文件传输时避免 Actions 日志看似卡死
+  "$OSSUTIL" cp -f "$dest" "$key" "${oss_auth[@]}" || return 1
+  "$OSSUTIL" cp -f "$dest.sha256" "$key.sha256" "${oss_auth[@]}" || return 1
   rm -f "$dest" "$dest.sha256"
 
   log "已上传: $key (sha256 ${sha})"
