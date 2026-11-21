@@ -167,13 +167,12 @@ remote_sha() {
 # ossutil 进度条只用 \r 刷新，GitHub Actions 按 \n 摄取日志，大文件上传时
 # 会长时间无输出；转成换行让进度实时可见。进度走 stderr：publish_one 的
 # stdout 只允许出现 ok| 汇总行，主循环靠命令替换捕获它生成 Step Summary。
-# 两点处理：
-#   --part-size 20Mi：自动分片约 32Mi/片，慢链路上首片完成前总进度长期卡 0%；
-#     调小分片让百分比平滑推进（900MB 也仅 45 片，远低于 OSS 上限）。
-#   awk 按百分比折叠重复 tick（同百分比但 avg 在变的行只留首条）。
+# 分片策略用 ossutil 默认（自动约 32Mi/片），不显式指定 --part-size。
+# 默认分片下总进度只在整片完成时跳动，慢链路首片完成前会持续输出相同的
+# 0.000%，由 awk 按百分比折叠重复 tick（同百分比但 avg 在变的行只留首条）。
 # pipefail 已开，失败照常传播；awk 语法限定 POSIX，mawk/gawk 均可。
 oss_cp() {
-  "$OSSUTIL" cp -f --part-size 20Mi "$@" 2>&1 \
+  "$OSSUTIL" cp -f "$@" 2>&1 \
     | stdbuf -oL tr '\r' '\n' \
     | stdbuf -oL awk '/Upload\.\.\. done:/ {
         p = ""

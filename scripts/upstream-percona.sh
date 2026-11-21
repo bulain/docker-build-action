@@ -94,11 +94,12 @@ oss_prefix=$("$python_bin" -c 'import sys,yaml; c=yaml.safe_load(open(sys.argv[1
 # ossutil 进度条只用 \r 刷新，GitHub Actions 按 \n 摄取日志，大文件上传时
 # 会长时间无输出；转成换行让进度实时可见。进度走 stderr，保持函数 stdout
 # 干净（汇总只认 ok|/skip| 状态行）。
-# --part-size 20Mi：自动分片约 32Mi/片，慢链路上首片完成前总进度长期卡 0%，
-# 调小分片让百分比平滑推进；awk 按百分比折叠重复 tick。
+# 分片用 ossutil 默认（自动约 32Mi/片），不显式指定 --part-size；默认分片下
+# 总进度只在整片完成时跳动，慢链路首片完成前会持续输出相同百分比，由 awk
+# 按百分比折叠重复 tick。
 # pipefail 已开，失败照常传播；awk 语法限定 POSIX，mawk/gawk 均可。
 oss_cp() {
-  "$OSSUTIL" cp -f --part-size 20Mi "$@" 2>&1 \
+  "$OSSUTIL" cp -f "$@" 2>&1 \
     | stdbuf -oL tr '\r' '\n' \
     | stdbuf -oL awk '/Upload\.\.\. done:/ {
         p = ""
