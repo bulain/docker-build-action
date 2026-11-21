@@ -164,6 +164,12 @@ remote_sha() {
   rm -f "$tmp"
 }
 
+# ossutil 进度条只用 \r 刷新，GitHub Actions 按 \n 摄取日志，大文件上传时
+# 会长时间无输出；转成换行让进度实时可见。pipefail 已开，失败照常传播。
+oss_cp() {
+  "$OSSUTIL" cp -f "$@" 2>&1 | stdbuf -oL tr '\r' '\n'
+}
+
 # ---------- 上游获取 ----------
 # GITHUB_TOKEN 只给 resolver 的 GitHub API 查询用（见 mirror_resolve.py）；
 # release 资产下载走签名直链，curl 不需要额外头
@@ -329,8 +335,9 @@ publish_one() {
     log "警告: ${asset_name} 哈希与 OSS 记录不一致（远端 ${prev} / 本次 ${sha}）"
   fi
 
-  "$OSSUTIL" cp -f "$dest" "$key" "${oss_auth[@]}" || die "上传失败: $key"
-  "$OSSUTIL" cp -f "$dest.sha256" "$key.sha256" "${oss_auth[@]}" || die "上传失败: $key.sha256"
+  log "上传: ${asset_name}"
+  oss_cp "$dest" "$key" "${oss_auth[@]}" || die "上传失败: $key"
+  oss_cp "$dest.sha256" "$key.sha256" "${oss_auth[@]}" || die "上传失败: $key.sha256"
   log "已上传: $key (sha256 ${sha})"
   printf 'ok|%s|%s|%s|%s\n' "$asset_name" "$key" "$sha" "$note"
 }

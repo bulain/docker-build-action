@@ -160,8 +160,10 @@ jobs:
             exit 0
           fi
 
-          "$OSSUTIL" cp -f "out/${ARTIFACT_FILE}" "$key" "${auth[@]}"
-          "$OSSUTIL" cp -f "out/${ARTIFACT_FILE}.sha256" "${key}.sha256" "${auth[@]}"
+          # ossutil 进度条只用 \r 刷新，Actions 按 \n 摄取日志，转成换行让进度实时可见
+          echo "上传: ${ARTIFACT_FILE}"
+          "$OSSUTIL" cp -f "out/${ARTIFACT_FILE}" "$key" "${auth[@]}" 2>&1 | stdbuf -oL tr '\r' '\n'
+          "$OSSUTIL" cp -f "out/${ARTIFACT_FILE}.sha256" "${key}.sha256" "${auth[@]}" 2>&1 | stdbuf -oL tr '\r' '\n'
           "$OSSUTIL" stat "$key" "${auth[@]}" >/dev/null
           echo "已上传: $key (sha256 ${ARTIFACT_SHA256})"
           {
