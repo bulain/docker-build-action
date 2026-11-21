@@ -91,25 +91,6 @@ fi
 
 oss_prefix=$("$python_bin" -c 'import sys,yaml; c=yaml.safe_load(open(sys.argv[1])); print((c.get("upstream") or {}).get("prefix") or (c.get("oss") or {}).get("prefix") or "linux")' "$config_file")
 
-# ossutil 进度条只用 \r 刷新，GitHub Actions 按 \n 摄取日志，大文件上传时
-# 会长时间无输出；转成换行让进度实时可见。进度走 stderr，保持函数 stdout
-# 干净（汇总只认 ok|/skip| 状态行）。
-# 分片用 ossutil 默认（自动约 32Mi/片），不显式指定 --part-size；默认分片下
-# 总进度只在整片完成时跳动，慢链路首片完成前会持续输出相同百分比，由 awk
-# 按百分比折叠重复 tick。
-# pipefail 已开，失败照常传播；awk 语法限定 POSIX，mawk/gawk 均可。
-oss_cp() {
-  "$OSSUTIL" cp -f "$@" 2>&1 \
-    | stdbuf -oL tr '\r' '\n' \
-    | stdbuf -oL awk '/Upload\.\.\. done:/ {
-        p = ""
-        for (i = 1; i <= NF; i++) if ($i ~ /%,?$/) { p = $i; break }
-        if (p == lastp) next
-        lastp = p
-      }
-      { print }' >&2
-}
-
 download_dir="${DOWNLOAD_DIR:-$REPO_ROOT/out/upstream}"
 mkdir -p "$download_dir"
 
@@ -166,8 +147,9 @@ sync_one() {
   printf '%s  %s\n' "$sha" "$filename" > "$dest.sha256"
 
   log "上传: ${filename}"
-  oss_cp "$dest" "$key" "${oss_auth[@]}" || return 1
-  oss_cp "$dest.sha256" "$key.sha256" "${oss_auth[@]}" || return 1
+  # 不重定向：ossutil 原生进度直接进日志；汇总走状态文件，不捕获函数 stdout
+  "$OSSUTIL" cp -f "$dest" "$key" "${oss_auth[@]}" || return 1
+  "$OSSUTIL" cp -f "$dest.sha256" "$key.sha256" "${oss_auth[@]}" || return 1
   rm -f "$dest" "$dest.sha256"
 
   log "已上传: $key (sha256 ${sha})"

@@ -164,25 +164,6 @@ remote_sha() {
   rm -f "$tmp"
 }
 
-# ossutil 进度条只用 \r 刷新，GitHub Actions 按 \n 摄取日志，大文件上传时
-# 会长时间无输出；转成换行让进度实时可见。进度走 stderr：publish_one 的
-# stdout 只允许出现 ok| 汇总行，主循环靠命令替换捕获它生成 Step Summary。
-# 分片策略用 ossutil 默认（自动约 32Mi/片），不显式指定 --part-size。
-# 默认分片下总进度只在整片完成时跳动，慢链路首片完成前会持续输出相同的
-# 0.000%，由 awk 按百分比折叠重复 tick（同百分比但 avg 在变的行只留首条）。
-# pipefail 已开，失败照常传播；awk 语法限定 POSIX，mawk/gawk 均可。
-oss_cp() {
-  "$OSSUTIL" cp -f "$@" 2>&1 \
-    | stdbuf -oL tr '\r' '\n' \
-    | stdbuf -oL awk '/Upload\.\.\. done:/ {
-        p = ""
-        for (i = 1; i <= NF; i++) if ($i ~ /%,?$/) { p = $i; break }
-        if (p == lastp) next
-        lastp = p
-      }
-      { print }' >&2
-}
-
 # ---------- 上游获取 ----------
 # GITHUB_TOKEN 只给 resolver 的 GitHub API 查询用（见 mirror_resolve.py）；
 # release 资产下载走签名直链，curl 不需要额外头
@@ -349,8 +330,10 @@ publish_one() {
   fi
 
   log "上传: ${asset_name}"
-  oss_cp "$dest" "$key" "${oss_auth[@]}" || die "上传失败: $key"
-  oss_cp "$dest.sha256" "$key.sha256" "${oss_auth[@]}" || die "上传失败: $key.sha256"
+  # 进度走 stderr：publish_one 的 stdout 只允许 ok| 汇总行（主循环命令替换捕获），
+  # stderr 不被捕获，ossutil 原生进度直接进 Actions 日志
+  "$OSSUTIL" cp -f "$dest" "$key" "${oss_auth[@]}" >&2 || die "上传失败: $key"
+  "$OSSUTIL" cp -f "$dest.sha256" "$key.sha256" "${oss_auth[@]}" >&2 || die "上传失败: $key.sha256"
   log "已上传: $key (sha256 ${sha})"
   printf 'ok|%s|%s|%s|%s\n' "$asset_name" "$key" "$sha" "$note"
 }

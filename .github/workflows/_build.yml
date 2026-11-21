@@ -160,22 +160,9 @@ jobs:
             exit 0
           fi
 
-          # ossutil 进度条只用 \r 刷新，Actions 按 \n 摄取日志，转成换行让进度实时可见。
-          # 分片用 ossutil 默认（自动约 32Mi/片）；awk 按百分比折叠重复 tick。
-          oss_cp() {
-            "$OSSUTIL" cp -f "$@" 2>&1 \
-              | stdbuf -oL tr '\r' '\n' \
-              | stdbuf -oL awk '/Upload\.\.\. done:/ {
-                  p = ""
-                  for (i = 1; i <= NF; i++) if ($i ~ /%,?$/) { p = $i; break }
-                  if (p == lastp) next
-                  lastp = p
-                }
-                { print }'
-          }
           echo "上传: ${ARTIFACT_FILE}"
-          oss_cp "out/${ARTIFACT_FILE}" "$key" "${auth[@]}"
-          oss_cp "out/${ARTIFACT_FILE}.sha256" "${key}.sha256" "${auth[@]}"
+          "$OSSUTIL" cp -f "out/${ARTIFACT_FILE}" "$key" "${auth[@]}"
+          "$OSSUTIL" cp -f "out/${ARTIFACT_FILE}.sha256" "${key}.sha256" "${auth[@]}"
           "$OSSUTIL" stat "$key" "${auth[@]}" >/dev/null
           echo "已上传: $key (sha256 ${ARTIFACT_SHA256})"
           {
