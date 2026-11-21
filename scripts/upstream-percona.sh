@@ -92,9 +92,10 @@ fi
 oss_prefix=$("$python_bin" -c 'import sys,yaml; c=yaml.safe_load(open(sys.argv[1])); print((c.get("upstream") or {}).get("prefix") or (c.get("oss") or {}).get("prefix") or "linux")' "$config_file")
 
 # ossutil 进度条只用 \r 刷新，GitHub Actions 按 \n 摄取日志，大文件上传时
-# 会长时间无输出；转成换行让进度实时可见。pipefail 已开，失败照常传播。
+# 会长时间无输出；转成换行让进度实时可见。进度走 stderr，保持函数 stdout
+# 干净（汇总只认 ok|/skip| 状态行）。pipefail 已开，失败照常传播。
 oss_cp() {
-  "$OSSUTIL" cp -f "$@" 2>&1 | stdbuf -oL tr '\r' '\n'
+  "$OSSUTIL" cp -f "$@" 2>&1 | stdbuf -oL tr '\r' '\n' >&2
 }
 
 download_dir="${DOWNLOAD_DIR:-$REPO_ROOT/out/upstream}"

@@ -165,9 +165,11 @@ remote_sha() {
 }
 
 # ossutil 进度条只用 \r 刷新，GitHub Actions 按 \n 摄取日志，大文件上传时
-# 会长时间无输出；转成换行让进度实时可见。pipefail 已开，失败照常传播。
+# 会长时间无输出；转成换行让进度实时可见。进度走 stderr：publish_one 的
+# stdout 只允许出现 ok| 汇总行，主循环靠命令替换捕获它生成 Step Summary。
+# pipefail 已开，失败照常传播。
 oss_cp() {
-  "$OSSUTIL" cp -f "$@" 2>&1 | stdbuf -oL tr '\r' '\n'
+  "$OSSUTIL" cp -f "$@" 2>&1 | stdbuf -oL tr '\r' '\n' >&2
 }
 
 # ---------- 上游获取 ----------
