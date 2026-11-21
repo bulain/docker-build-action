@@ -160,10 +160,22 @@ jobs:
             exit 0
           fi
 
-          # ossutil 进度条只用 \r 刷新，Actions 按 \n 摄取日志，转成换行让进度实时可见
+          # ossutil 进度条只用 \r 刷新，Actions 按 \n 摄取日志，转成换行让进度实时可见。
+          # --part-size 20Mi 避免慢链路首片完成前进度长期卡 0%；awk 按百分比折叠重复 tick。
+          oss_cp() {
+            "$OSSUTIL" cp -f --part-size 20Mi "$@" 2>&1 \
+              | stdbuf -oL tr '\r' '\n' \
+              | stdbuf -oL awk '/Upload\.\.\. done:/ {
+                  p = ""
+                  for (i = 1; i <= NF; i++) if ($i ~ /%,?$/) { p = $i; break }
+                  if (p == lastp) next
+                  lastp = p
+                }
+                { print }'
+          }
           echo "上传: ${ARTIFACT_FILE}"
-          "$OSSUTIL" cp -f "out/${ARTIFACT_FILE}" "$key" "${auth[@]}" 2>&1 | stdbuf -oL tr '\r' '\n'
-          "$OSSUTIL" cp -f "out/${ARTIFACT_FILE}.sha256" "${key}.sha256" "${auth[@]}" 2>&1 | stdbuf -oL tr '\r' '\n'
+          oss_cp "out/${ARTIFACT_FILE}" "$key" "${auth[@]}"
+          oss_cp "out/${ARTIFACT_FILE}.sha256" "${key}.sha256" "${auth[@]}"
           "$OSSUTIL" stat "$key" "${auth[@]}" >/dev/null
           echo "已上传: $key (sha256 ${ARTIFACT_SHA256})"
           {
