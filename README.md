@@ -69,7 +69,7 @@ Alertmanager、alertmanager-webhook-adapter、Alloy、Grafana、VictoriaMetrics 
 
 ## 中间件镜像
 
-SILO / mcli（pgsty 的 MinIO 发行线）、RustFS 服务端 / RustFS CLI、RabbitMQ、Nacos、MySQL 同样只从上游站点分发。
+SILO / mcli（pgsty 的 MinIO 发行线）、RustFS 服务端 / RustFS CLI、RabbitMQ、Nacos、MySQL、Nexus 同样只从上游站点分发。
 这些组件走第四个通道（继 packages / upstream / monitoring 之后），机制与监控组件共用同一套驱动
 （按 config.yaml 的段区分）：下载上游发布件 → 按官方哈希校验 → 上传 OSS。
 GitHub 系组件保持上游文件名与压缩类型原样搬运；MySQL 是例外，产物统一为自制/官方 minimal 包。
@@ -77,12 +77,14 @@ GitHub 系组件保持上游文件名与压缩类型原样搬运；MySQL 是例�
 - 配置：`config.yaml` 的 `middleware` 段，每个组件在 `components` 下一条；入口脚本为 `scripts/<name>.sh`。
 - 当前镜像：silo / mcli `20261112000000.0.0`，rustfs `1.0.6`（gnu zip），rustfs-cli `0.1.37`（gnu tar.gz），
   rabbitmq-server `4.4.0`（generic-unix，单包），nacos-server `3.3.0`（单包），
-  mysql `8.0.46 / 8.4.13 / 9.7.4`（均 glibc2.28，3 版本 × 2 架构共 6 个 minimal 包）。
+  mysql `8.0.46 / 8.4.13 / 9.7.4`（均 glibc2.28，3 版本 × 2 架构共 6 个 minimal 包），
+  nexus `3.77.1-01`（Sonatype NXRM unix tarball，Java 单包不分架构）。
 - MySQL 特殊处理：MD5 内嵌在 dev.mysql.com 下载页（无独立校验文件），resolver 抓页面解析；
   x86_64 的 8.4/9.7 直接用上游官方 minimal，其余 4 个 full 包由 `scripts/transforms/make_mysql_minimal.sh`
   自制（删 `mysqld-debug` 与 debug 插件，保留空目录，并对 ELF `--strip-unneeded`，arm64 用交叉 strip）。
 - 校验：silo / mcli / rustfs / rustfs-cli 按上游 sha256 校验文件强校验；nacos 上游只发 BSD 格式 md5，
-  驱动按 `algorithm: md5` 走 md5sum 强校验；MySQL 按下载页 MD5 校验源包；rabbitmq 的 GitHub release
+  驱动按 `algorithm: md5` 走 md5sum 强校验；MySQL 按下载页 MD5 校验源包；nexus 的 Sonatype CDN
+  同名 `.sha256` 边车只有裸哈希，resolver 取出后按 expected_hash 强校验；rabbitmq 的 GitHub release
   只有 GPG 签名、无哈希文件，告警后自算 sha256。自制 minimal 产物统一只附自算 sha256 侧车。
 - 触发：全部仅手动 `workflow_dispatch`；单组件 workflow 只跑该组件，`middleware.yml` 全量重跑，均可勾选 `force`。
 - OSS 路径：`oss://{bucket}/{prefix}/{filename}` + 同名 `.sha256`；默认前缀 `linux`，与其他通道同层。
@@ -138,7 +140,7 @@ scripts/alertmanager.sh        监控组件入口（另有 alertmanager-webhook-
                                vlutils / victoriametrics-logs-datasource /
                                victoriametrics-metrics-datasource）
 scripts/silo.sh                中间件组件入口（另有 mcli / rustfs / rustfs-cli /
-                               rabbitmq-server / nacos-server / mysql）
+                               rabbitmq-server / nacos-server / mysql / nexus）
 scripts/transforms/            下载后转换脚本（make_mysql_minimal.sh：full -> minimal + strip）
 scripts/gen_matrix.py          config.yaml -> Actions matrix
 .github/workflows/_build.yml   可复用工作流（矩阵 -> 容器编译 -> OSS）
@@ -158,7 +160,7 @@ scripts/gen_matrix.py          config.yaml -> Actions matrix
 .github/workflows/monitoring.yml       监控组件全量镜像入口
 .github/workflows/_middleware.yml      中间件镜像可复用工作流（含 MySQL 交叉 strip 工具链）
 .github/workflows/<component>.yml      中间件镜像入口（silo / mcli / rustfs /
-                                       rustfs-cli / rabbitmq-server / nacos-server / mysql）
+                                       rustfs-cli / rabbitmq-server / nacos-server / mysql / nexus）
 .github/workflows/middleware.yml       中间件全量镜像入口
 .github/workflows/_jdk.yml             JDK 镜像可复用工作流
 .github/workflows/temurin.yml          JDK 全量镜像入口（temurin8/17/21/25.yml 为单组件入口）

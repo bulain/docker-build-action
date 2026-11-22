@@ -34,6 +34,14 @@ MySQL Community Server 不经 GitHub 分发，且需求与其他组件不同：�
 - **版本与档位选择**。镜像 8.0.46 / 8.4.13 LTS / 9.7.4 LTS 三个版本，全部选 glibc2.28 包——8.0.46 刻意不选 glibc2.17，避免同组件混档；el7 不在 MySQL 覆盖范围内。共 6 个产物（3 版本 × 2 架构），其中 2 个官方直拷、4 个自制。
 - **校验边界**。官方 MD5 只校验下载源（full 或官方 minimal）；自制产物没有也不可能有上游哈希，沿用自算 sha256 侧车 + OSS 重跑比对的既有约定，Step Summary 的备注列标明「官方 MD5 校验源包后自制 minimal」。
 
+## Nexus：Sonatype CDN 直链与裸哈希边车（首个非 GitHub/API catalog）
+
+Nexus Repository Manager 的 unix tarball 用于目标机解压安装，是本通道第一个既不来自 GitHub release、也没有 JSON API 的组件：
+
+- **直链即契约**。`download.sonatype.com/nexus/3/nexus-{version}-unix.tar.gz` 路径长期稳定，站点不开放目录列举、HEAD 请求统一 404（GET 与 Range 请求正常）。版本钉死在 config.yaml，含构建号（`3.77.1-01`），升级时整串替换，resolver 新增 `catalog: sonatype` 只做模板拼接，不查任何上游接口。
+- **裸哈希边车走 expected_hash 通道**。同名 `.sha256` 文件内容只有一串哈希、没有文件名列，无法走 `verify_official` 的两列 awk 匹配。resolver 直接 GET 边车取裸哈希，经 TSV 的 expected_hash 列下发，由 `verify_expected` 强校验；checksums 列保持 `-`，不进 `fetch_checksums` 流程。
+- **single 单包**。Nexus 是 Java 应用，一套 tarball 覆盖双架构，`single: true` 与 rabbitmq/nacos 同等待遇。
+
 ## 触发
 
 - 与 monitoring 通道一致：单组件 workflow（`silo.yml` 等六个）只跑该组件，可勾选 `force`；`middleware.yml` 跑全量（`scripts/middleware.sh --all`）。
@@ -51,7 +59,7 @@ MySQL Community Server 不经 GitHub 分发，且需求与其他组件不同：�
 - `scripts/mirror_resolve.py`（配置段 → 文件清单，查询上游资产；由 `monitoring_resolve.py` 泛化而来）
 - `scripts/mirror.sh`（下载、校验、上传；由 `monitoring.sh` 泛化而来）
 - `scripts/middleware.sh`、`scripts/monitoring.sh`（两个段的 shim 入口）
-- `scripts/{silo,mcli,rustfs,rustfs-cli,rabbitmq-server,nacos-server,mysql}.sh`
+- `scripts/{silo,mcli,rustfs,rustfs-cli,rabbitmq-server,nacos-server,mysql,nexus}.sh`
 - `scripts/transforms/make_mysql_minimal.sh`（MySQL full -> minimal 转换，含可选跨架构 strip）
-- `.github/workflows/_middleware.yml`、`.github/workflows/middleware.yml` 与七个单组件入口
+- `.github/workflows/_middleware.yml`、`.github/workflows/middleware.yml` 与各单组件入口（含 `nexus.yml`）
 - ADR 0004（被本 ADR 泛化的前身，规则默认继承）

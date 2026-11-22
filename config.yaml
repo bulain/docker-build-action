@@ -295,6 +295,22 @@ middleware:
           transform: "mysql-minimal"
           strip: true
 
+    nexus:
+      # Sonatype Nexus Repository Manager 服务端发行包（下载到目标机解压安装用）。
+      # Java 应用不分架构，single 单包；版本号含构建号（如 3.77.1-01），无法从
+      # 大版本推断，升级时整串替换。来源是 Sonatype 官方 CDN（catalog: sonatype），
+      # 直链稳定，不查任何 API。
+      catalog: "sonatype"
+      version: "3.77.1-01"
+      single: true
+      assets:
+        default: "nexus-{version}-unix.tar.gz"
+      url: "https://download.sonatype.com/nexus/3/nexus-{version}-unix.tar.gz"
+      checksums:
+        # 边车内容只有裸 sha256（无文件名列），resolver 取出后走 expected_hash
+        # 通道，不进 fetch_checksums / verify_official 流程
+        url: "https://download.sonatype.com/nexus/3/nexus-{version}-unix.tar.gz.sha256"
+
 # JDK 上游发布件镜像（第五个通道）。Adoptium Temurin 通过官方站点
 # https://adoptium.net/temurin/releases 分发，资产元数据由 api.adoptium.net 给出。
 # 机制与 monitoring / middleware 相同：按官方元数据下载、校验后原样上传，

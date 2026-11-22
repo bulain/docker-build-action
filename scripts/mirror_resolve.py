@@ -9,6 +9,8 @@
 - catalog: adoptium 的组件（JDK）按官方 API 解析：资产名、直链与 sha256 都来自
   api.adoptium.net。17+ 的 release 是 jdk-<semver>（如 jdk-21.0.13+9），8 是
   jdk8u504-b01，无法互相推导，故支持显式 release_name。离线与 dry-run 按命名规则推导文件名。
+  sonatype（nexus）不查 API：直链按 config.yaml 模板拼，sha256 取自同名 .sha256
+  边车（内容为裸哈希），经 expected_hash 通道下发。
 - arch 为 - 表示该组件不分架构（single）。
 - url：上游资产地址。dry-run 与 --local 不查上游，此时分别留空 / 填本地目录。
 - filename：落到 OSS 的名字。普通组件等于上游资产名（原样搬运）；带 transform
@@ -213,6 +215,15 @@ def build_entry(
         if pkg is None:
             raise SystemExit(f"{name} {version} {arch}: grafana 包清单里找不到该 os/arch 组合")
         url = f"https://dl.grafana.com/oss/release/{local_name}"
+    elif not dry and comp.get("catalog") == "sonatype":
+        # Sonatype CDN 直链稳定，版本钉死在 config.yaml，无需资产查询
+        url = str(comp["url"]).format(version=version, tag=tag)
+        ck0 = comp.get("checksums") or {}
+        if ck0.get("url"):
+            # 边车是裸 sha256（无文件名列），走 expected_hash 通道
+            expected_hash = http_text(
+                ck0["url"].format(version=version, tag=tag)
+            ).strip().split()[0]
     elif not dry:
         url = (assets or {}).get(asset, "")
         if not url:
@@ -221,7 +232,8 @@ def build_entry(
     checksums = ""
     algorithm = "sha256"
     ck = comp.get("checksums") or {}
-    if ck.get("url"):
+    # sonatype 的边车是裸哈希，已在上面进 expected_hash；这里不再下发校验文件 URL
+    if ck.get("url") and comp.get("catalog") != "sonatype":
         checksums = ck["url"].format(version=version, tag=tag)
         algorithm = str(ck.get("algorithm") or "sha256")
 
@@ -377,10 +389,19 @@ def main() -> int:
                 files.append(build_entry(name, comp, arch, None, [], local=args.local))
             continue
 
-        key = ("grafana", str(comp["version"])) if comp.get("catalog") else ("gh", comp.get("repo"))
+        catalog = comp.get("catalog")
+        if catalog == "grafana":
+            key = ("grafana", str(comp["version"]))
+        elif catalog == "sonatype":
+            # 直链在 build_entry 里拼，没有可缓存的上游资产表
+            key = ("sonatype", str(comp["version"]))
+        else:
+            key = ("gh", comp.get("repo"))
         if key not in cache:
             if key[0] == "grafana":
                 cache[key] = {"packages": grafana_packages(str(comp["version"]))}
+            elif key[0] == "sonatype":
+                cache[key] = {}
             else:
                 # tag 可能与版本号不同名（prometheus 系 tag 带 v，资产名不带；
                 # pgsty 的 tag 是 RELEASE.<ISO>，资产名用紧凑包版本）
