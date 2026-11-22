@@ -36,11 +36,11 @@ MySQL Community Server 不经 GitHub 分发，且需求与其他组件不同：�
 
 ## Nexus：Sonatype CDN 直链与裸哈希边车（首个非 GitHub/API catalog）
 
-Nexus Repository Manager 的 unix tarball 用于目标机解压安装，是本通道第一个既不来自 GitHub release、也没有 JSON API 的组件：
+Nexus Repository Manager 的 Linux tarball 用于目标机解压安装，是本通道第一个既不来自 GitHub release、也没有 JSON API 的组件：
 
-- **直链即契约**。`download.sonatype.com/nexus/3/nexus-{version}-unix.tar.gz` 路径长期稳定，站点不开放目录列举、HEAD 请求统一 404（GET 与 Range 请求正常）。版本钉死在 config.yaml，含构建号（`3.77.1-01`），升级时整串替换，resolver 新增 `catalog: sonatype` 只做模板拼接，不查任何上游接口。
+- **直链即契约**。`download.sonatype.com/nexus/3/` 路径长期稳定，站点不开放目录列举、HEAD 请求统一 404（GET 与 Range 请求正常）。版本钉死在 config.yaml，含构建号（`3.98.1-01`），升级时整串替换，resolver 新增 `catalog: sonatype` 只做模板拼接，不查任何上游接口。
+- **3.98 起分架构发版**。旧的 `nexus-{version}-unix.tar.gz` 单包在 3.98 下线，改发 `nexus-{version}-linux-x86_64.tar.gz` 与 `nexus-{version}-linux-aarch_64.tar.gz`（上游拼写是下划线 `aarch_64`），靠 assets 模板映射到段内 amd64/arm64，与 rustfs 的 x86_64/aarch64 消化方式同类。
 - **裸哈希边车走 expected_hash 通道**。同名 `.sha256` 文件内容只有一串哈希、没有文件名列，无法走 `verify_official` 的两列 awk 匹配。resolver 直接 GET 边车取裸哈希，经 TSV 的 expected_hash 列下发，由 `verify_expected` 强校验；checksums 列保持 `-`，不进 `fetch_checksums` 流程。
-- **single 单包**。Nexus 是 Java 应用，一套 tarball 覆盖双架构，`single: true` 与 rabbitmq/nacos 同等待遇。
 
 ## 触发
 

@@ -9,8 +9,9 @@
 - catalog: adoptium 的组件（JDK）按官方 API 解析：资产名、直链与 sha256 都来自
   api.adoptium.net。17+ 的 release 是 jdk-<semver>（如 jdk-21.0.13+9），8 是
   jdk8u504-b01，无法互相推导，故支持显式 release_name。离线与 dry-run 按命名规则推导文件名。
-  sonatype（nexus）不查 API：直链按 config.yaml 模板拼，sha256 取自同名 .sha256
-  边车（内容为裸哈希），经 expected_hash 通道下发。
+  sonatype（nexus）不查 API：直链按 config.yaml 模板拼（3.98 起分 x86_64 /
+  aarch_64 双架构包），sha256 取自同名 .sha256 边车（内容为裸哈希），
+  经 expected_hash 通道下发。
 - arch 为 - 表示该组件不分架构（single）。
 - url：上游资产地址。dry-run 与 --local 不查上游，此时分别留空 / 填本地目录。
 - filename：落到 OSS 的名字。普通组件等于上游资产名（原样搬运）；带 transform
@@ -216,13 +217,14 @@ def build_entry(
             raise SystemExit(f"{name} {version} {arch}: grafana 包清单里找不到该 os/arch 组合")
         url = f"https://dl.grafana.com/oss/release/{local_name}"
     elif not dry and comp.get("catalog") == "sonatype":
-        # Sonatype CDN 直链稳定，版本钉死在 config.yaml，无需资产查询
-        url = str(comp["url"]).format(version=version, tag=tag)
+        # Sonatype CDN 直链稳定，版本钉死在 config.yaml，无需资产查询；
+        # asset 已按架构从 assets 模板格式化（x86_64 / aarch_64）
+        url = str(comp["url"]).format(version=version, tag=tag, asset=asset)
         ck0 = comp.get("checksums") or {}
         if ck0.get("url"):
             # 边车是裸 sha256（无文件名列），走 expected_hash 通道
             expected_hash = http_text(
-                ck0["url"].format(version=version, tag=tag)
+                ck0["url"].format(version=version, tag=tag, asset=asset)
             ).strip().split()[0]
     elif not dry:
         url = (assets or {}).get(asset, "")

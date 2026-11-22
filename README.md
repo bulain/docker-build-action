@@ -78,13 +78,13 @@ GitHub 系组件保持上游文件名与压缩类型原样搬运；MySQL 是例�
 - 当前镜像：silo / mcli `20261112000000.0.0`，rustfs `1.0.6`（gnu zip），rustfs-cli `0.1.37`（gnu tar.gz），
   rabbitmq-server `4.4.0`（generic-unix，单包），nacos-server `3.3.0`（单包），
   mysql `8.0.46 / 8.4.13 / 9.7.4`（均 glibc2.28，3 版本 × 2 架构共 6 个 minimal 包），
-  nexus `3.77.1-01`（Sonatype NXRM unix tarball，Java 单包不分架构）。
+  nexus `3.98.1-01`（Sonatype NXRM，3.98 起分 `linux-x86_64` / `linux-aarch_64` 双架构包）。
 - MySQL 特殊处理：MD5 内嵌在 dev.mysql.com 下载页（无独立校验文件），resolver 抓页面解析；
   x86_64 的 8.4/9.7 直接用上游官方 minimal，其余 4 个 full 包由 `scripts/transforms/make_mysql_minimal.sh`
   自制（删 `mysqld-debug` 与 debug 插件，保留空目录，并对 ELF `--strip-unneeded`，arm64 用交叉 strip）。
 - 校验：silo / mcli / rustfs / rustfs-cli 按上游 sha256 校验文件强校验；nacos 上游只发 BSD 格式 md5，
-  驱动按 `algorithm: md5` 走 md5sum 强校验；MySQL 按下载页 MD5 校验源包；nexus 的 Sonatype CDN
-  同名 `.sha256` 边车只有裸哈希，resolver 取出后按 expected_hash 强校验；rabbitmq 的 GitHub release
+  驱动按 `algorithm: md5` 走 md5sum 强校验；MySQL 按下载页 MD5 校验源包；nexus 分架构包的 Sonatype
+  CDN 同名 `.sha256` 边车只有裸哈希，resolver 取出后按 expected_hash 强校验；rabbitmq 的 GitHub release
   只有 GPG 签名、无哈希文件，告警后自算 sha256。自制 minimal 产物统一只附自算 sha256 侧车。
 - 触发：全部仅手动 `workflow_dispatch`；单组件 workflow 只跑该组件，`middleware.yml` 全量重跑，均可勾选 `force`。
 - OSS 路径：`oss://{bucket}/{prefix}/{filename}` + 同名 `.sha256`；默认前缀 `linux`，与其他通道同层。
