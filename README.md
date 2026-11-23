@@ -62,8 +62,9 @@ opentelemetry-javaagent、aliyun-ossutil、apache-maven 同样只从 GitHub / �
 
 - 配置：`config.yaml` 的 `monitoring` 段，每个组件在 `components` 下一条；入口脚本为 `scripts/<name>.sh`。
 - 两种取件方式：GitHub release 组件给 `repo`/`tag`，resolver 查资产表；`catalog: "direct"` 组件给固定 URL
-  模板 `urls`（aliyun-ossutil / apache-maven / opentelemetry-javaagent），不查任何 API，`assets` 与 `urls`
-  允许不同名（otel 上游资产不带版本号，落 OSS 时补上）。
+  模板 `urls`（aliyun-ossutil / apache-maven / opentelemetry-javaagent / alloy），不查任何 API，`assets` 与 `urls`
+  允许不同名，`source_assets` 可声明上游原名供下载与校验匹配。otel 与 alloy 上游资产不带版本号，
+  落 OSS 时补上（alloy 对齐 grafana 风格 `alloy-<version>.linux-<arch>.zip`）。
 - 触发：全部仅手动 `workflow_dispatch`；单组件 workflow 只跑该组件，`monitoring.yml` 全量重跑，均可勾选 `force`。
 - OSS 路径：`oss://{bucket}/{prefix}/{filename}` + 同名 `.sha256`；默认前缀 `linux`，与自编译产物、Percona 原件同层。
 - 校验：下载原件后按上游 `SHA256SUMS`（或 grafana.com API 给出的 sha256）校验，不通过即失败；apache-maven 官方只给
@@ -82,7 +83,8 @@ GitHub 系组件保持上游文件名与压缩类型原样搬运；MySQL 是例�
 
 - 配置：`config.yaml` 的 `middleware` 段，每个组件在 `components` 下一条；入口脚本为 `scripts/<name>.sh`。
 - 当前镜像：silo / mcli `20261112000000.0.0`，rustfs `1.0.6`（gnu zip），rustfs-cli `0.1.37`（gnu tar.gz），
-  rabbitmq-server `4.4.0`（generic-unix，单包），nacos-server `3.3.0`（单包），
+  rabbitmq-server 三条维护主线 `4.4.1` / `4.2.9`（组件 rabbitmq-server-4.2）/ `3.13.7`（组件 rabbitmq-server-3.13，
+  均 generic-unix 单包，一组件一版本），nacos-server `3.3.0`（单包），
   mysql `8.0.46 / 8.4.13 / 9.7.4`（均 glibc2.28，3 版本 × 2 架构共 6 个 minimal 包），
   nexus `3.98.1-01`（Sonatype NXRM，3.98 起分 `linux-x86_64` / `linux-aarch_64` 双架构包）。
 - MySQL 特殊处理：MD5 内嵌在 dev.mysql.com 下载页（无独立校验文件），resolver 抓页面解析；
@@ -149,7 +151,8 @@ scripts/alertmanager.sh        监控组件入口（另有 alertmanager-webhook-
                                jmx-prometheus-standalone / opentelemetry-javaagent /
                                aliyun-ossutil / apache-maven）
 scripts/silo.sh                中间件组件入口（另有 mcli / rustfs / rustfs-cli /
-                               rabbitmq-server / nacos-server / mysql / nexus）
+                               rabbitmq-server / rabbitmq-server-4.2 / rabbitmq-server-3.13 /
+                               nacos-server / mysql / nexus）
 scripts/transforms/            下载后转换脚本（make_mysql_minimal.sh：full -> minimal + strip）
 scripts/gen_matrix.py          config.yaml -> Actions matrix
 .github/workflows/_build.yml   可复用工作流（矩阵 -> 容器编译 -> OSS）

@@ -106,14 +106,24 @@ monitoring:
         url: "https://github.com/bougou/alertmanager-webhook-adapter/releases/download/{version}/SHA256SUMS"
 
     alloy:
-      repo: "grafana/alloy"
-      version: "v1.22.0"
-      # 上游发的是 zip，原样保留
+      # 上游资产名不带版本号（alloy-linux-amd64.zip），落 OSS 按 grafana 风格补版本，
+      # 否则新旧版本共用一个 key，「已存在即跳过」会永久失效。走 direct 直链：
+      # urls/source_assets 用上游原名（下载与 SHA256SUMS 校验按它匹配），
+      # assets 给带版本的 OSS 产物名。上游发 zip，压缩类型原样保留
+      catalog: "direct"
+      version: "1.22.0"
+      tag: "v1.22.0"
       assets:
+        amd64: "alloy-{version}.linux-amd64.zip"
+        arm64: "alloy-{version}.linux-arm64.zip"
+      source_assets:
         amd64: "alloy-linux-amd64.zip"
         arm64: "alloy-linux-arm64.zip"
+      urls:
+        amd64: "https://github.com/grafana/alloy/releases/download/{tag}/alloy-linux-amd64.zip"
+        arm64: "https://github.com/grafana/alloy/releases/download/{tag}/alloy-linux-arm64.zip"
       checksums:
-        url: "https://github.com/grafana/alloy/releases/download/{version}/SHA256SUMS"
+        url: "https://github.com/grafana/alloy/releases/download/{tag}/SHA256SUMS"
 
     grafana:
       # release 资产里没有 Linux tar.gz，走 grafana.com 的版本 API 取包清单
@@ -316,6 +326,24 @@ middleware:
       repo: "rabbitmq/rabbitmq-server"
       version: "4.4.1"
       tag: "v4.4.1"
+      single: true
+      assets:
+        default: "rabbitmq-server-generic-unix-{version}.tar.xz"
+
+    # 旧维护主线并行保留：一组件一版本（ADR 0005），按 major.minor 拆独立组件，
+    # 产物名自带版本号，与 4.4.1 在 OSS 上共存不冲突；校验待遇同 rabbitmq-server
+    rabbitmq-server-4.2:
+      repo: "rabbitmq/rabbitmq-server"
+      version: "4.2.9"
+      tag: "v4.2.9"
+      single: true
+      assets:
+        default: "rabbitmq-server-generic-unix-{version}.tar.xz"
+
+    rabbitmq-server-3.13:
+      repo: "rabbitmq/rabbitmq-server"
+      version: "3.13.7"
+      tag: "v3.13.7"
       single: true
       assets:
         default: "rabbitmq-server-generic-unix-{version}.tar.xz"

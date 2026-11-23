@@ -16,7 +16,7 @@ Alertmanager、Grafana、Alloy、VictoriaMetrics / VictoriaLogs（含工具集�
 - **分架构，不分档位**。这些产物是 Go 编译的静态二进制（grafana 是前端 + 少量 C 库，官方 tar.gz 同样跨发行版可用），一套 Linux 文件覆盖 el7–el10 与 Ubuntu。`monitoring.architectures` 默认 `[amd64, arm64]`；Grafana 数据源插件只有一份 zip，用 `single: true` 标注。
 - **一组件一脚本一 workflow**。与 `packages` 的约定一致，`scripts/<name>.sh` 是入口；共用逻辑在 `scripts/monitoring.sh`，配置解析在 `scripts/monitoring_resolve.py`，后者顺带查上游资产列表，每个 repo+tag 只查一次；请求带 `GITHUB_TOKEN`，否则匿名配额（60 次/小时）不够用。
 - **官方校验必过**。每个组件声明 `checksums.url`，下载原件后按上游记录的 sha256 校验，不过就失败；`--skip-checksums` 只用于上游临时缺校验文件的排查。Grafana 走 grafana.com 的版本 API：同一份 API 响应同时给出包地址与 sha256，下载后按它校验。上游发布件若被重新打包，校验会失败，此时需要人工确认后升级版本。
-- **原样搬运，不解压不改名**。OSS 上的 key 就是上游资产名（`vmutils-linux-amd64-v1.156.0.tar.gz`、`alloy-linux-amd64.zip`、`victoriametrics-logs-datasource-v0.34.0.zip`，adapter 的资产本来没有扩展名就保持没有）。与参考目录 `ansible-deploy/files/linux` 的组织方式一致，目标机按需自行选择解压方式；zip 不必再转 tar.gz，也不需要 binutils。
+- **原样搬运，不解压不改名**。OSS 上的 key 默认就是上游资产名（`vmutils-linux-amd64-v1.156.0.tar.gz`、`victoriametrics-logs-datasource-v0.34.0.zip`，adapter 的资产本来没有扩展名就保持没有）。与参考目录 `ansible-deploy/files/linux` 的组织方式一致，目标机按需自行选择解压方式；zip 不必再转 tar.gz，也不需要 binutils。例外见下文 2026-11 更新：opentelemetry-javaagent 与 alloy 的上游资产名不带版本号，落 OSS 时补上（alloy 按 grafana 风格 `alloy-<version>.linux-<arch>.zip`），用 `source_assets` 保留上游原名供下载与校验匹配。
 - **扁平放在 `linux/` 根下**（延伸 ADR 0002 / 0003）。文件名自带组件名与版本，可与自编译产物、Percona 原件共存，靠前缀区分。
 - **Grafana 的包清单只用来确认版本/架构存在，不直接采用其 URL**。13.x 起 grafana.com API 返回的文件名带构建号并改用下划线（`grafana_13.3.1_<build>_linux_amd64.tar.gz`），会随每次构建变化；实际下载走稳定规范地址 `https://dl.grafana.com/oss/release/grafana-<version>.linux-<arch>.tar.gz`，OSS key 保持规范名。两个地址指向同一份上游产物。
 - **OSS 已存在即跳过**。产物名带版本，同一版本不重传；需要重传时手动触发并勾选 `force`。哈希与 OSS 记录不一致时告警，便于发现上游重打包。
@@ -40,9 +40,11 @@ Alertmanager、Grafana、Alloy、VictoriaMetrics / VictoriaLogs（含工具集�
 
 > 更新（2026-11）：新增 sql-exporter、nginx-prometheus-exporter、dameng-exporter、
 > jmx-prometheus-standalone、opentelemetry-javaagent、aliyun-ossutil、apache-maven 七个组件，
-> 并引入 `catalog: "direct"`：非 GitHub release 的固定 URL 直链（官方 CDN / dlcdn），
-> 用 `urls` 给下载地址、`assets` 给 OSS 产物名，两者允许不同名。唯一需要改名的是
-> opentelemetry-javaagent——上游资产名不带版本号，不补版本会让「已存在即跳过」永久失效。
+> 并引入 `catalog: "direct"`：非 GitHub release 的固定 URL 直链（官方 CDN / dlcdn，
+> 以及放弃资产表查询的 GitHub release），用 `urls` 给下载地址、`assets` 给 OSS 产物名，
+> 两者允许不同名；`source_assets` 可选，声明上游原名供下载与官方校验文件匹配。
+> 需要改名的是 opentelemetry-javaagent 与 alloy——上游资产名不带版本号，不补版本会让
+> 「已存在即跳过」永久失效；alloy 的 OSS 名对齐 grafana 风格 `alloy-<version>.linux-<arch>.zip`。
 > 校验方面的两个例外：dameng-exporter、opentelemetry-javaagent、aliyun-ossutil 上游不提供
 > 哈希文件（只有 GPG 签名或什么都没有），走「告警 + 自算 sha256」路径，同 rabbitmq；
 > apache-maven 只给裸 sha512 边车（`checksums.bare: true`），resolver 取裸哈希走

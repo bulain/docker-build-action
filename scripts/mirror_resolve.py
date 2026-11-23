@@ -257,6 +257,15 @@ def build_entry(
     elif ck.get("bare") and ck.get("algorithm"):
         algorithm = str(ck["algorithm"])
 
+    # direct 组件可用 source_assets 声明上游原名（下载与官方校验按它匹配），
+    # asset 仍作 OSS 产物名；缺省回落到 asset，adoptium 在线改写 asset 不受影响
+    source_assets = comp.get("source_assets") or {}
+    source = (
+        str(source_assets[key]).format(version=version, tag=tag)
+        if key in source_assets
+        else asset
+    )
+
     return {
         "component": name,
         "version": version,
@@ -265,8 +274,8 @@ def build_entry(
         "filename": asset,
         "checksums": checksums,
         "algorithm": algorithm,
-        # 普通组件：下载名即产物名，无转换
-        "source": asset,
+        # 普通组件：下载名即产物名；direct + source_assets 时两者不同
+        "source": source,
         "transform": "",
         "strip": False,
         "expected_hash": expected_hash,
@@ -419,7 +428,9 @@ def main() -> int:
             # 固定 URL 直链，build_entry 里纯模板拼接，无任何上游查询
             key = ("direct", str(comp["version"]))
         else:
-            key = ("gh", comp.get("repo"))
+            # key 必须带 tag：同一 repo 可挂多个组件（如 rabbitmq 的 4.4 / 4.2 / 3.13
+            # 三条维护主线），只按 repo 缓存会串用第一个 tag 的资产表
+            key = ("gh", comp.get("repo"), str(comp.get("tag") or comp["version"]))
         if key not in cache:
             if key[0] == "grafana":
                 cache[key] = {"packages": grafana_packages(str(comp["version"]))}
@@ -439,7 +450,7 @@ def main() -> int:
         for f in files:
             print(f"{f['component']}\t{f['version']}\t{f['arch'] or '-'}\t{f['filename']}")
             if f["source"] != f["filename"]:
-                extra = f["transform"] or "?"
+                extra = f["transform"] or "rename"
                 strip_note = " +strip" if f["strip"] else ""
                 print(f"  source: {f['source']} -> transform {extra}{strip_note}")
             else:
