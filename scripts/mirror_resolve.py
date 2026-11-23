@@ -143,6 +143,19 @@ def grafana_packages(version: str) -> list[dict]:
     return data.get("packages") or []
 
 
+def parse_bare_hash(text: str) -> str:
+    """解析裸哈希边车，兼容两种 Apache 风格：
+    1. 单行连续哈希（Maven / Sonatype 的 .sha512/.sha256）；
+    2. gpg --print-md 分组格式（RocketMQ：'filename: AB12 CD34 ...'，
+       大写、按空格与换行分组、带文件名前缀）。
+    统一归一化成连续小写 hex，交给 sha256sum/sha512sum 校验。
+    """
+    s = text.strip()
+    if s.split(None, 1)[0].endswith(":"):
+        s = s.split(":", 1)[1]
+    return "".join(s.split()).lower()
+
+
 def http_text(url: str, user_agent: str = "docker-build-action") -> str:
     headers = {"User-Agent": user_agent}
     req = urllib.request.Request(url, headers=headers)
@@ -237,10 +250,10 @@ def build_entry(
             raise SystemExit(f"{name} {version} {arch}: direct 组件缺少 urls.{key}")
         ck0 = comp.get("checksums") or {}
         if not local and not dry and ck0.get("bare") and ck0.get("url"):
-            # 裸哈希边车（如 Maven 的 .sha512，文件里只有哈希没有文件名）
-            expected_hash = http_text(
-                ck0["url"].format(version=version, tag=tag)
-            ).strip().split()[0]
+            # 裸哈希边车：Maven 是单行 hex，RocketMQ 是 Apache 分组格式，统一归一化
+            expected_hash = parse_bare_hash(
+                http_text(ck0["url"].format(version=version, tag=tag))
+            )
     elif not dry:
         url = (assets or {}).get(asset, "")
         if not url:

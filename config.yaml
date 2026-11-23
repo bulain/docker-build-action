@@ -370,6 +370,45 @@ middleware:
         url: "https://github.com/alibaba/nacos/releases/download/{version}/nacos-server-{version}.tar.gz.md5"
         algorithm: "md5"
 
+    # 旧维护主线并行保留：一组件一版本（ADR 0005），按 major.minor 拆独立组件，
+    # 产物名自带版本号，与 3.3.0 在 OSS 上共存不冲突；BSD 格式 md5 强校验同 nacos-server
+    nacos-server-3.2:
+      repo: "alibaba/nacos"
+      version: "3.2.4"
+      single: true
+      assets:
+        default: "nacos-server-{version}.tar.gz"
+      checksums:
+        url: "https://github.com/alibaba/nacos/releases/download/{version}/nacos-server-{version}.tar.gz.md5"
+        algorithm: "md5"
+
+    nacos-server-2.5:
+      repo: "alibaba/nacos"
+      version: "2.5.5"
+      single: true
+      assets:
+        default: "nacos-server-{version}.tar.gz"
+      checksums:
+        url: "https://github.com/alibaba/nacos/releases/download/{version}/nacos-server-{version}.tar.gz.md5"
+        algorithm: "md5"
+
+    rocketmq:
+      # Apache RocketMQ NameServer/Broker 二进制，Java 产物 single，zip 原件不转换。
+      # 用 archive 永久地址而非 dlcdn：dlcdn 只保留最新版，钉死版本在新版发布后会 404。
+      # 官方 sha512 边车是 gpg --print-md 分组格式（'filename: 大写哈希 空格分组 多行'），
+      # resolver 用 parse_bare_hash 归一化为连续小写 hex 后走 expected_hash 通道
+      catalog: "direct"
+      version: "5.5.1"
+      single: true
+      assets:
+        default: "rocketmq-all-{version}-bin-release.zip"
+      urls:
+        default: "https://archive.apache.org/dist/rocketmq/{version}/rocketmq-all-{version}-bin-release.zip"
+      checksums:
+        bare: true
+        algorithm: "sha512"
+        url: "https://archive.apache.org/dist/rocketmq/{version}/rocketmq-all-{version}-bin-release.zip.sha512"
+
     mysql:
       # MySQL 不走 GitHub：目录页（os=2 = Linux Generic）的 HTML 表格内嵌每个资产的
       # MD5，没有独立校验文件；resolver 抓页面解析，下载走 cdn.mysql.com 稳定直链。
