@@ -226,6 +226,21 @@ def build_entry(
             expected_hash = http_text(
                 ck0["url"].format(version=version, tag=tag, asset=asset)
             ).strip().split()[0]
+    elif comp.get("catalog") == "direct":
+        # 固定 URL 直链（非 GitHub release：官方 CDN / dlcdn 等），不查任何 API。
+        # urls 给下载地址、assets 给落 OSS 的产物名，两者可以不同名——
+        # 例如 opentelemetry-javaagent 上游资产不带版本号，落 OSS 时补上。
+        # dry-run 也回放 URL：纯模板拼接，不联网。
+        raw_urls = comp.get("urls") or {}
+        url = str(raw_urls.get(key) or "").format(version=version, tag=tag)
+        if not url:
+            raise SystemExit(f"{name} {version} {arch}: direct 组件缺少 urls.{key}")
+        ck0 = comp.get("checksums") or {}
+        if not local and not dry and ck0.get("bare") and ck0.get("url"):
+            # 裸哈希边车（如 Maven 的 .sha512，文件里只有哈希没有文件名）
+            expected_hash = http_text(
+                ck0["url"].format(version=version, tag=tag)
+            ).strip().split()[0]
     elif not dry:
         url = (assets or {}).get(asset, "")
         if not url:
@@ -234,10 +249,13 @@ def build_entry(
     checksums = ""
     algorithm = "sha256"
     ck = comp.get("checksums") or {}
-    # sonatype 的边车是裸哈希，已在上面进 expected_hash；这里不再下发校验文件 URL
-    if ck.get("url") and comp.get("catalog") != "sonatype":
+    # sonatype / direct+bare 的边车是裸哈希，已在上面进 expected_hash；
+    # 不再作为校验文件 URL 下发给 mirror.sh
+    if ck.get("url") and not ck.get("bare") and comp.get("catalog") != "sonatype":
         checksums = ck["url"].format(version=version, tag=tag)
         algorithm = str(ck.get("algorithm") or "sha256")
+    elif ck.get("bare") and ck.get("algorithm"):
+        algorithm = str(ck["algorithm"])
 
     return {
         "component": name,
@@ -397,12 +415,15 @@ def main() -> int:
         elif catalog == "sonatype":
             # 直链在 build_entry 里拼，没有可缓存的上游资产表
             key = ("sonatype", str(comp["version"]))
+        elif catalog == "direct":
+            # 固定 URL 直链，build_entry 里纯模板拼接，无任何上游查询
+            key = ("direct", str(comp["version"]))
         else:
             key = ("gh", comp.get("repo"))
         if key not in cache:
             if key[0] == "grafana":
                 cache[key] = {"packages": grafana_packages(str(comp["version"]))}
-            elif key[0] == "sonatype":
+            elif key[0] in ("sonatype", "direct"):
                 cache[key] = {}
             else:
                 # tag 可能与版本号不同名（prometheus 系 tag 带 v，资产名不带；

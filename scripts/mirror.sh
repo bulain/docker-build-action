@@ -199,6 +199,7 @@ verify_official() {
   local archive="$1" checksums="$2" name="$3" algo="${4:-sha256}" expected sumtool
   case "$algo" in
     sha256) sumtool=sha256sum ;;
+    sha512) sumtool=sha512sum ;;
     md5)
       command -v md5sum >/dev/null 2>&1 || die "缺少 md5sum，无法校验 ${name}"
       sumtool=md5sum
@@ -219,6 +220,7 @@ verify_expected() {
   local archive="$1" expected="$2" name="$3" algo="${4:-sha256}" sumtool
   case "$algo" in
     sha256) sumtool=sha256sum ;;
+    sha512) sumtool=sha512sum ;;
     md5)
       command -v md5sum >/dev/null 2>&1 || die "缺少 md5sum，无法校验 ${name}"
       sumtool=md5sum

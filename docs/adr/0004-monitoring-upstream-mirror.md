@@ -38,12 +38,22 @@ Alertmanager、Grafana、Alloy、VictoriaMetrics / VictoriaLogs（含工具集�
 > 更新（ADR 0005）：本通道的驱动与解析器已泛化为 `scripts/mirror.sh` 与 `scripts/mirror_resolve.py`，
 > 用 `--section monitoring` 选段；`scripts/monitoring.sh` 保留为 shim，行为与本 ADR 描述一致。
 
+> 更新（2026-11）：新增 sql-exporter、nginx-prometheus-exporter、dameng-exporter、
+> jmx-prometheus-standalone、opentelemetry-javaagent、aliyun-ossutil、apache-maven 七个组件，
+> 并引入 `catalog: "direct"`：非 GitHub release 的固定 URL 直链（官方 CDN / dlcdn），
+> 用 `urls` 给下载地址、`assets` 给 OSS 产物名，两者允许不同名。唯一需要改名的是
+> opentelemetry-javaagent——上游资产名不带版本号，不补版本会让「已存在即跳过」永久失效。
+> 校验方面的两个例外：dameng-exporter、opentelemetry-javaagent、aliyun-ossutil 上游不提供
+> 哈希文件（只有 GPG 签名或什么都没有），走「告警 + 自算 sha256」路径，同 rabbitmq；
+> apache-maven 只给裸 sha512 边车（`checksums.bare: true`），resolver 取裸哈希走
+> expected_hash 通道，驱动相应支持 sha512sum。
+
 ## 相关
 
 - `config.yaml` 的 `monitoring` 段
 - `scripts/mirror_resolve.py`（配置 → 文件清单，查询上游资产；泛化前名 `monitoring_resolve.py`）
 - `scripts/mirror.sh`（下载、校验、上传；泛化前名 `monitoring.sh`）
 - `scripts/monitoring.sh`（monitoring 段 shim 入口）
-- `scripts/<name>.sh`（十个组件入口）
+- `scripts/<name>.sh`（组件入口，含 direct 直链组件）
 - `.github/workflows/_monitoring.yml`、`.github/workflows/monitoring.yml`
 - ADR 0005（同一套机制泛化到中间件组件）

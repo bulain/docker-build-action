@@ -56,13 +56,19 @@ Percona 官网下载慢，`scripts/upstream-percona.sh` 把 Percona Server / Xtr
 ## 监控组件镜像
 
 Alertmanager、alertmanager-webhook-adapter、Alloy、Grafana、VictoriaMetrics / VictoriaLogs 及其工具集（vmutils / vlutils）、
-两个 Grafana 数据源插件同样只从 GitHub / grafana.com 分发。这些组件走第二条镜像通道：下载上游发布件 → 按官方校验文件验证 → 原样上传 OSS
-（保持上游文件名与压缩类型，不解压、不剥离、不改名）。
+两个 Grafana 数据源插件，以及 sql-exporter、nginx-prometheus-exporter、dameng-exporter、jmx-prometheus-standalone、
+opentelemetry-javaagent、aliyun-ossutil、apache-maven 同样只从 GitHub / 官方 CDN 分发。这些组件走第二条镜像通道：
+下载上游发布件 → 按官方校验文件验证 → 原样上传 OSS（保持上游文件名与压缩类型，不解压、不剥离、不改名）。
 
 - 配置：`config.yaml` 的 `monitoring` 段，每个组件在 `components` 下一条；入口脚本为 `scripts/<name>.sh`。
+- 两种取件方式：GitHub release 组件给 `repo`/`tag`，resolver 查资产表；`catalog: "direct"` 组件给固定 URL
+  模板 `urls`（aliyun-ossutil / apache-maven / opentelemetry-javaagent），不查任何 API，`assets` 与 `urls`
+  允许不同名（otel 上游资产不带版本号，落 OSS 时补上）。
 - 触发：全部仅手动 `workflow_dispatch`；单组件 workflow 只跑该组件，`monitoring.yml` 全量重跑，均可勾选 `force`。
 - OSS 路径：`oss://{bucket}/{prefix}/{filename}` + 同名 `.sha256`；默认前缀 `linux`，与自编译产物、Percona 原件同层。
-- 校验：下载原件后按上游 `SHA256SUMS`（或 grafana.com API 给出的 sha256）校验，不通过即失败。
+- 校验：下载原件后按上游 `SHA256SUMS`（或 grafana.com API 给出的 sha256）校验，不通过即失败；apache-maven 官方只给
+  裸 sha512 边车（`checksums.bare`），驱动按 sha512 强校验；dameng-exporter、opentelemetry-javaagent、aliyun-ossutil
+  上游无哈希文件，告警后自算 sha256（同 middleware 的 rabbitmq）。
 - 本地验证：`scripts/<name>.sh --local <dir>` 从目录读取上游资产，结果写到 `out/monitoring/packages/`，不联网、不上传。
 
 决策与取舍见 `docs/adr/0004-monitoring-upstream-mirror.md`。
@@ -99,10 +105,10 @@ Adoptium Temurin 的 JDK tarball 从官方站点 <https://adoptium.net/temurin/r
 `api.adoptium.net` 元数据接口，不依赖 GitHub release 资产名。Temurin 8 / 17 / 21 / 25 走第五个通道，
 与监控、中间件共用同一套驱动：按官方元数据下载 → 用 API 给出的 sha256 校验 → 原样上传 OSS。
 
-- 配置：`config.yaml` 的 `jdk` 段，每组件 `catalog: adoptium` + 完整版本（如 `21.0.13+9`）；
-  8 的 release 标识不通用，额外写 `release_name: jdk8u504-b01`。
-- 当前镜像：temurin8 `8.0.504+1`（`8u504b01`）、temurin17 `17.0.21+9`、temurin21 `21.0.13+9`、
-  temurin25 `25.0.5+8`，各 x64 / aarch64。
+- 配置：`config.yaml` 的 `jdk` 段，每组件 `catalog: adoptium` + 完整版本（如 `21.0.13.1+2`）；
+  8 的 release 标识不通用，额外写 `release_name: jdk8u512-b09`。
+- 当前镜像：temurin8 `8.0.512+9`（`8u512b09`）、temurin17 `17.0.21.1+2`、temurin21 `21.0.13.1+2`、
+  temurin25 `25.0.5.1+2`，各 x64 / aarch64。
   Adoptium 的补丁版可能只发 x64，配置取两架构共有的版本，避免同一机群混用不同构建。
 - 文件名由 API 决定（`OpenJDK<major>U-jdk_<x64|aarch64>_linux_hotspot_<ver>.tar.gz`）；
   checksum 取自 API 的 `package.checksum`，OSS 侧仍附同名 `.sha256`。
@@ -138,7 +144,10 @@ scripts/temurin21.sh           Temurin 21 组件入口（另 temurin8.sh / temur
 scripts/alertmanager.sh        监控组件入口（另有 alertmanager-webhook-adapter / alloy /
                                grafana / victoria-logs / victoria-metrics / vmutils /
                                vlutils / victoriametrics-logs-datasource /
-                               victoriametrics-metrics-datasource）
+                               victoriametrics-metrics-datasource / sql-exporter /
+                               nginx-prometheus-exporter / dameng-exporter /
+                               jmx-prometheus-standalone / opentelemetry-javaagent /
+                               aliyun-ossutil / apache-maven）
 scripts/silo.sh                中间件组件入口（另有 mcli / rustfs / rustfs-cli /
                                rabbitmq-server / nacos-server / mysql / nexus）
 scripts/transforms/            下载后转换脚本（make_mysql_minimal.sh：full -> minimal + strip）

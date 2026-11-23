@@ -167,6 +167,88 @@ monitoring:
       assets:
         default: "victoriametrics-logs-datasource-{version}.zip"
 
+    # ---- exporter / JVM 代理 / 基础工具（GitHub release 与固定直链混合）----
+    sql-exporter:
+      repo: "burningalchemist/sql_exporter"
+      # tag 与版本同名且不带 v
+      version: "0.24.14"
+      assets:
+        amd64: "sql_exporter-{version}.linux-amd64.tar.gz"
+        arm64: "sql_exporter-{version}.linux-arm64.tar.gz"
+      checksums:
+        url: "https://github.com/burningalchemist/sql_exporter/releases/download/{version}/sha256sums.txt"
+
+    nginx-prometheus-exporter:
+      # 仓库已改名重定向，API 会自动跟随；资产名用下划线且版本号不带 v
+      repo: "nginxinc/nginx-prometheus-exporter"
+      version: "1.5.3"
+      tag: "v1.5.3"
+      assets:
+        amd64: "nginx-prometheus-exporter_{version}_linux_amd64.tar.gz"
+        arm64: "nginx-prometheus-exporter_{version}_linux_arm64.tar.gz"
+      checksums:
+        url: "https://github.com/nginxinc/nginx-prometheus-exporter/releases/download/{tag}/nginx-prometheus-exporter_{version}_checksums.txt"
+
+    dameng-exporter:
+      repo: "gaoyuan98/dameng_exporter"
+      version: "1.2.7"
+      tag: "v1.2.7"
+      # 资产名带构建日期戳，无法从版本号推导，整名写死；升级时版本与资产名一起改
+      assets:
+        amd64: "dameng_exporter_v1.2.7_20261109_linux_amd64.tar.gz"
+        arm64: "dameng_exporter_v1.2.7_20261109_linux_arm64.tar.gz"
+      # release 不提供任何校验文件，走「告警 + 自算 sha256 边车」路径，同 rabbitmq
+
+    jmx-prometheus-standalone:
+      # prometheus/jmx_exporter 同 release 还发 javaagent 与 isolator，这里只镜像 standalone
+      repo: "prometheus/jmx_exporter"
+      version: "1.7.0"
+      single: true
+      assets:
+        default: "jmx_prometheus_standalone-{version}.jar"
+      # 边车是 coreutils 格式（哈希 + 文件名），按普通校验文件处理
+      checksums:
+        url: "https://github.com/prometheus/jmx_exporter/releases/download/{version}/jmx_prometheus_standalone-{version}.jar.sha256"
+
+    opentelemetry-javaagent:
+      # 上游资产名不带版本号（opentelemetry-javaagent.jar），GitHub release 只发 GPG .asc
+      # 没有哈希文件。用 direct 直链并在落 OSS 时补上版本号，否则新旧版本共用一个
+      # key，「已存在即跳过」会永久失效
+      catalog: "direct"
+      version: "2.34.0"
+      tag: "v2.34.0"
+      single: true
+      assets:
+        default: "opentelemetry-javaagent-{version}.jar"
+      urls:
+        default: "https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/{tag}/opentelemetry-javaagent.jar"
+
+    aliyun-ossutil:
+      # 阿里云 ossutil v2 官方 CDN，zip 原件；CDN 不提供校验文件，自算 sha256 边车
+      catalog: "direct"
+      version: "2.4.0"
+      assets:
+        amd64: "ossutil-{version}-linux-amd64.zip"
+        arm64: "ossutil-{version}-linux-arm64.zip"
+      urls:
+        amd64: "https://gosspublic.alicdn.com/ossutil/v2/{version}/ossutil-{version}-linux-amd64.zip"
+        arm64: "https://gosspublic.alicdn.com/ossutil/v2/{version}/ossutil-{version}-linux-arm64.zip"
+
+    apache-maven:
+      # Apache 官方 CDN（dlcdn 只保留最新版），Java 产物不分架构，single。
+      # 官方只给裸 sha512 边车（文件里只有哈希），用 bare 走 expected_hash 通道
+      catalog: "direct"
+      version: "3.9.16"
+      single: true
+      assets:
+        default: "apache-maven-{version}-bin.tar.gz"
+      urls:
+        default: "https://dlcdn.apache.org/maven/maven-3/{version}/binaries/apache-maven-{version}-bin.tar.gz"
+      checksums:
+        bare: true
+        algorithm: "sha512"
+        url: "https://dlcdn.apache.org/maven/maven-3/{version}/binaries/apache-maven-{version}-bin.tar.gz.sha512"
+
 # 中间件/基础服务的上游发布件镜像。结构与 monitoring 完全相同（同一套驱动，
 # 用 --section middleware 区分），区别只在语义：这里放对象存储、消息队列、
 # 注册配置中心等服务端原件。不编译、不分档位，产物保持上游原名原样搬运。

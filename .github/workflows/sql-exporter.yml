@@ -1,0 +1,24 @@
+name: mirror sql-exporter
+
+# 镜像 sql-exporter 上游发布件。不编译，见 docs/adr/0004。
+# 仅 workflow_dispatch 手动触发；本入口只筛出自己那部分组件清单。
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "覆盖 OSS 上已存在的产物"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    uses: ./.github/workflows/_monitoring.yml
+    with:
+      components: "sql-exporter"
+      force: ${{ inputs.force || false }}
+    secrets: inherit
