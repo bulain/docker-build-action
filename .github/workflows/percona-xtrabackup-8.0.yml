@@ -1,0 +1,29 @@
+name: sync percona-xtrabackup-8.0
+
+# 仅 workflow_dispatch 手动触发；只镜像 Percona XtraBackup 8.0 维护线的 tarball，见 docs/adr/0003。
+# 8.0 线独立组件：覆盖 glibc 2.17/2.28/2.34（el7-el9），与 percona-xtrabackup（8.4/9.x）分开。
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "覆盖版本（完整串，如 8.0.35-31；留空使用 config.yaml）"
+        required: false
+        default: ""
+      force:
+        description: "覆盖 OSS 上已存在的文件"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    uses: ./.github/workflows/_upstream-percona.yml
+    with:
+      component: "percona-xtrabackup-8.0"
+      version: ${{ inputs.version || '' }}
+      force: ${{ inputs.force || false }}
+    secrets: inherit

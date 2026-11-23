@@ -21,10 +21,18 @@ Percona 官网（`downloads.percona.com`）带宽差，目标机直接下载 Per
 - **哈希自算**。Percona 不提供独立的 `.sha256`（请求会 302 回下载落地页），因此首次下载后计算 sha256、随文件上传为同名 `.sha256`，重跑时与远端记录比对、不一致则告警。**这个值不是官方校验值**，只能证明「我们首次拿到的是什么」，不能证明上游未被篡改。
 - **按组件 × 完整版本串声明**。构建号无法从大版本推断（PS `9.7.2-3` 对应 XtraBackup `9.7.2-2`），所以版本必须写全；`workflow_dispatch` 的 `version` 输入也只接受完整串，不猜构建号。
 
+> 更新（2026-11）：新增 `percona-xtrabackup-8.0` 组件，镜像 8.0 维护线 `8.0.35-31`。
+> 上文「el7(2.17) 上游已不发布」只对 8.4 / 9.x 新线成立；8.0 线的 tarball 仍发
+> glibc 2.17 / 2.28 / 2.34 三档（覆盖 el7–el9），这正是保留该线的理由。组件用显式
+> `tiers` 接管档位，不继承全局 2.28/2.34 与 2.39 extra（2.39 在 8.0 线不存在）。
+> 注意 8.0.35 的 tarball 只发到构建号 -31；-32 至 -36 只有 RPM 重建，无 tarball。
+> 组件按维护主线拆分（与 ADR 0005 的 rabbitmq 多线同思路），OSS 文件名自带完整版本，
+> 与 percona-xtrabackup 的 8.4/9.x 产物共存不冲突。
+
 ## 触发
 
 - 全部仅手动 `workflow_dispatch`，OSS 已存在的文件跳过。
-- 拆成三个单组件入口 `percona-server.yml` / `percona-xtrabackup.yml` / `percona-toolkit.yml`，固定 `--component`，可带 `version` 覆盖与 `force`；公共逻辑在可复用工作流 `_upstream-percona.yml`。
+- 拆成四个单组件入口 `percona-server.yml` / `percona-xtrabackup.yml` / `percona-xtrabackup-8.0.yml` / `percona-toolkit.yml`，固定 `--component`，可带 `version` 覆盖与 `force`；公共逻辑在可复用工作流 `_upstream-percona.yml`。
 - `upstream-percona.yml` 为全量入口，不带组件筛选，只支持 `force`。
 
 不做定时任务：没有「探测最新版本」的输入，定时跑只会空转。

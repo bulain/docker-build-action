@@ -63,6 +63,15 @@ upstream:
       # xtrabackup 额外发布 glibc2.39 档（el10 用），PS 没有
       extra_glibc_tiers: ["2.39"]
 
+    percona-xtrabackup-8.0:
+      # 8.0 维护线独立组件（一组件一版本，同 rabbitmq 多主线拆法）：8.4 起砍掉
+      # glibc2.17，只有 8.0 线的 tarball 还覆盖 el7。8.0.35 的 tarball 只发到 -31，
+      # -32 至 -36 是 RPM 专属重建，没有 tarball。tiers 显式接管，不继承全局 2.28/2.34
+      # 与 2.39 extra（2.39 档在 8.0 线不存在）
+      url: "https://downloads.percona.com/downloads/Percona-XtraBackup-{major_minor}/Percona-XtraBackup-{version}/binary/tarball/percona-xtrabackup-{version}-Linux-x86_64.glibc{tier}-minimal.tar.gz"
+      versions: ["8.0.35-31"]
+      tiers: ["2.17", "2.28", "2.34"]
+
     percona-toolkit:
       # toolkit 不分 glibc 档、不带 minimal 后缀，只有一个 _x86_64 包
       url: "https://downloads.percona.com/downloads/percona-toolkit/{version}/binary/tarball/percona-toolkit-{version}_x86_64.tar.gz"
