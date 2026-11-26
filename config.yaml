@@ -548,7 +548,7 @@ vendor:
 packages:
   nginx:
     enabled: true
-    version: "1.30.7"
+    version: "1.30.8"
     os: [el7, el8, el9, el10]
     arches: [amd64, arm64]
     install_prefix: "/data/nginx"
