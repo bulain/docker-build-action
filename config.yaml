@@ -586,7 +586,7 @@ packages:
 
   openresty:
     enabled: true
-    version: "1.31.8.1"
+    version: "1.31.9.1"
     os: [el7, el8, el9, el10]
     arches: [amd64, arm64]
     install_prefix: "/data/openresty"
