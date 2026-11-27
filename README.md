@@ -14,7 +14,7 @@
 产物命名：`{pkg}-{version}-linux-glibc{X.Y}-{arch}.tar.gz` + 同名 `.sha256`。
 OSS 路径：`oss://{bucket}/{prefix}/{filename}`，默认前缀 `linux`。
 
-tar 内不带 `data/` 这层（条目为 `<pkg>/...`），解压到 `/data`（`tar -xzf <file> -C /data`）即落到 `/data/<pkg>`。
+tar 内不带 `data/` 这层（条目为 `<pkg>/...`），解压到 `/data`（`tar -xzf <file> -C /data`）即落到 `/data/<pkg>`。包内属主统一为 `root:root`。
 
 ## 一次性配置
 

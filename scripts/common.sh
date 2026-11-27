@@ -187,6 +187,9 @@ package_install_dir() {
     esac
   fi
 
+  # 上游源码包自带的属主会经 tar 解压、cp -a 带进安装树，目标机以 root 解压时原样还原
+  chown -R root:root "$prefix"
+
   mkdir -p "$outdir"
   tar -czf "$outdir/$file" -C "$base" "$rel"
   (cd "$outdir" && sha256sum "$file" > "$file.sha256")
